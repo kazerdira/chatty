@@ -41,6 +41,22 @@ dependencies {
     
     // BCrypt for password hashing
     implementation("org.mindrot:jbcrypt:0.4")
+    
+    // Database - Exposed ORM
+    implementation("org.jetbrains.exposed:exposed-core:0.46.0")
+    implementation("org.jetbrains.exposed:exposed-dao:0.46.0")
+    implementation("org.jetbrains.exposed:exposed-jdbc:0.46.0")
+    implementation("org.jetbrains.exposed:exposed-java-time:0.46.0")
+    
+    // PostgreSQL Driver
+    implementation("org.postgresql:postgresql:42.7.1")
+    
+    // HikariCP for connection pooling
+    implementation("com.zaxxer:HikariCP:5.1.0")
+    
+    // Koin for DI
+    implementation("io.insert-koin:koin-ktor:3.5.3")
+    implementation("io.insert-koin:koin-logger-slf4j:3.5.3")
 }
 
 kotlin {
