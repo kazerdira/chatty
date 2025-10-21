@@ -14,10 +14,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chatty.android.ui.auth.LoginScreen
+import com.chatty.android.ui.auth.LoginViewModel
 import com.chatty.android.ui.chat.ChatListScreen
 import com.chatty.android.ui.chat.ChatRoomScreen
+import com.chatty.android.ui.chat.UserSearchScreen
 import com.chatty.android.ui.theme.ChattyTheme
+import org.koin.androidx.compose.koinViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,6 +46,17 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ChattyApp() {
     val navController = rememberNavController()
+    val loginViewModel: LoginViewModel = koinViewModel()
+    val loginState by loginViewModel.uiState.collectAsStateWithLifecycle()
+    
+    // Handle logout navigation
+    LaunchedEffect(loginState.isLoggedIn) {
+        if (!loginState.isLoggedIn && navController.currentDestination?.route != "login") {
+            navController.navigate("login") {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
     
     NavHost(
         navController = navController,
@@ -63,9 +80,25 @@ fun ChattyApp() {
                     navController.navigate("chatRoom/$roomId")
                 },
                 onNewChatClick = {
-                    // TODO: Navigate to new chat screen
-                    // For now, create a test chat room
-                    navController.navigate("chatRoom/test-room-123")
+                    navController.navigate("userSearch")
+                },
+                onLogout = {
+                    loginViewModel.logout()
+                }
+            )
+        }
+        
+        // User search screen
+        composable("userSearch") {
+            UserSearchScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onCreateChat = { userIds, roomName ->
+                    // Navigate to the newly created room
+                    // The UserSearchViewModel will handle room creation
+                    // For now, navigate back to chat list
+                    navController.popBackStack()
                 }
             )
         }

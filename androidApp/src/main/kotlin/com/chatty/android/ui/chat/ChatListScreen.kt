@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.PersonOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -25,7 +26,8 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun ChatListScreen(
     onChatClick: (String) -> Unit,
-    onNewChatClick: () -> Unit
+    onNewChatClick: () -> Unit,
+    onLogout: () -> Unit
 ) {
     val viewModel: ChatListViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -39,6 +41,12 @@ fun ChatListScreen(
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = "New chat"
+                        )
+                    }
+                    IconButton(onClick = onLogout) {
+                        Icon(
+                            imageVector = Icons.Default.ExitToApp,
+                            contentDescription = "Logout"
                         )
                     }
                 }

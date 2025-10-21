@@ -26,9 +26,21 @@ class ChatRoomRepositoryImpl(
         type: ChatRoom.RoomType,
         participantIds: List<User.UserId>
     ): Result<ChatRoom> {
-        return runCatching {
-            // TODO: Implement API endpoint
-            throw NotImplementedError("Create room not yet implemented on backend")
+        val typeString = when (type) {
+            ChatRoom.RoomType.DIRECT -> "DIRECT"
+            ChatRoom.RoomType.GROUP -> "GROUP"
+            ChatRoom.RoomType.CHANNEL -> "CHANNEL"
+        }
+        
+        return apiClient.createRoom(
+            name = name,
+            type = typeString,
+            participantIds = participantIds.map { it.value }
+        ).map { dto ->
+            val room = dto.toEntity()
+            // Add to local cache
+            _rooms.value = _rooms.value + room
+            room
         }
     }
     

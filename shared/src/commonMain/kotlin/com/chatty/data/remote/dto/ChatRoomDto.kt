@@ -18,6 +18,13 @@ data class ChatRoomDto(
     val avatarUrl: String? = null
 )
 
+@Serializable
+data class CreateRoomRequest(
+    val name: String,
+    val type: String,
+    val participantIds: List<String>
+)
+
 fun ChatRoomDto.toEntity(): ChatRoom = ChatRoom(
     id = ChatRoom.RoomId(id),
     name = name,

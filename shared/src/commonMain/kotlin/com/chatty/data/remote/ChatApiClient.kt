@@ -183,6 +183,24 @@ class ChatApiClient(
         }
     }
     
+    suspend fun createRoom(
+        name: String,
+        type: String,
+        participantIds: List<String>
+    ): Result<ChatRoomDto> {
+        return safeApiCall {
+            httpClient.post("$baseUrl/rooms") {
+                bearerAuth(tokenManager.getAccessToken() ?: "")
+                contentType(ContentType.Application.Json)
+                setBody(CreateRoomRequest(
+                    name = name,
+                    type = type,
+                    participantIds = participantIds
+                ))
+            }.body()
+        }
+    }
+    
     suspend fun getMessages(
         roomId: String,
         before: String? = null,

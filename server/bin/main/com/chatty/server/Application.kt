@@ -203,6 +203,13 @@ data class SendMessageRequest(
 )
 
 @Serializable
+data class CreateRoomRequest(
+    val name: String,
+    val type: String, // "DIRECT" or "GROUP"
+    val participantIds: List<String>
+)
+
+@Serializable
 data class UserDto(
     val id: String,
     val username: String,
@@ -543,6 +550,46 @@ fun Route.roomRoutes(roomRepository: RoomRepository) {
             
             val rooms = roomRepository.getRoomsForUser(userId)
             call.respond(HttpStatusCode.OK, rooms)
+        }
+        
+        post {
+            val principal = call.principal<JWTPrincipal>()!!
+            val userId = principal.payload.getClaim("userId").asString()
+            
+            val request = call.receive<CreateRoomRequest>()
+            
+            // Validate
+            if (request.name.isBlank()) {
+                throw ValidationException(
+                    "Invalid room name",
+                    mapOf("name" to "Room name cannot be empty")
+                )
+            }
+            
+            if (request.type !in listOf("DIRECT", "GROUP")) {
+                throw ValidationException(
+                    "Invalid room type",
+                    mapOf("type" to "Room type must be DIRECT or GROUP")
+                )
+            }
+            
+            if (request.participantIds.isEmpty()) {
+                throw ValidationException(
+                    "Invalid participants",
+                    mapOf("participantIds" to "At least one participant is required")
+                )
+            }
+            
+            // Create room with creator included
+            val allParticipants = (request.participantIds + userId).distinct()
+            val room = roomRepository.createRoom(
+                name = request.name,
+                type = request.type,
+                creatorId = userId,
+                participantIds = allParticipants
+            )
+            
+            call.respond(HttpStatusCode.Created, room)
         }
         
         get("/{id}") {

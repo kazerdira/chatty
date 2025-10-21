@@ -3,6 +3,7 @@ package com.chatty.android.di
 import com.chatty.android.ui.auth.LoginViewModel
 import com.chatty.android.ui.chat.ChatListViewModel
 import com.chatty.android.ui.chat.ChatRoomViewModel
+import com.chatty.android.ui.chat.UserSearchViewModel
 import com.chatty.data.local.DatabaseDriverFactory
 import com.chatty.data.local.TokenManager
 import com.chatty.data.local.TokenManagerImpl
@@ -10,10 +11,12 @@ import com.chatty.data.remote.ChatApiClient
 import com.chatty.data.repository.AuthRepositoryImpl
 import com.chatty.data.repository.ChatRoomRepositoryImpl
 import com.chatty.data.repository.MessageRepositoryImpl
+import com.chatty.data.repository.UserRepositoryImpl
 import com.chatty.database.ChatDatabase
 import com.chatty.domain.repository.AuthRepository
 import com.chatty.domain.repository.ChatRoomRepository
 import com.chatty.domain.repository.MessageRepository
+import com.chatty.domain.repository.UserRepository
 import com.chatty.domain.usecase.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -68,9 +71,18 @@ val appModule = module {
         )
     }
     
+    single<UserRepository> {
+        UserRepositoryImpl(
+            apiClient = get(),
+            tokenManager = get()
+        )
+    }
+    
     // Use Cases
     factory { LoginUseCase(get()) }
     factory { RegisterUseCase(get()) }
+    factory { LogoutUseCase(get()) }
+    factory { SearchUsersUseCase(get()) }
     factory { ObserveMessagesUseCase(get()) }
     factory { GetMessagesUseCase(get()) }
     factory { SendMessageUseCase(get(), get()) }
@@ -78,8 +90,9 @@ val appModule = module {
     factory { CreateRoomUseCase(get()) }
     
     // ViewModels
-    viewModel { LoginViewModel(get(), get()) }
+    viewModel { LoginViewModel(get(), get(), get()) }
     viewModel { ChatListViewModel(get()) }
+    viewModel { UserSearchViewModel(get(), get()) }
     viewModel { (roomId: String) -> 
         ChatRoomViewModel(
             roomId = roomId,

@@ -3,6 +3,7 @@ package com.chatty.android.ui.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chatty.domain.usecase.LoginUseCase
+import com.chatty.domain.usecase.LogoutUseCase
 import com.chatty.domain.usecase.RegisterUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +18,8 @@ data class LoginUiState(
 
 class LoginViewModel(
     private val loginUseCase: LoginUseCase,
-    private val registerUseCase: RegisterUseCase
+    private val registerUseCase: RegisterUseCase,
+    private val logoutUseCase: LogoutUseCase
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -76,5 +78,19 @@ class LoginViewModel(
     
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+    
+    fun logout() {
+        viewModelScope.launch {
+            println("🚪 LoginViewModel: Logging out")
+            logoutUseCase()
+                .onSuccess {
+                    println("✅ LoginViewModel: Logout successful")
+                    _uiState.value = LoginUiState(isLoggedIn = false)
+                }
+                .onFailure { error ->
+                    println("❌ LoginViewModel: Logout failed - ${error.message}")
+                }
+        }
     }
 }
