@@ -2,7 +2,8 @@ package com.chatty.server.data.tables
 
 import org.jetbrains.exposed.dao.id.UUIDTable
 import org.jetbrains.exposed.sql.Table
-import org.jetbrains.exposed.sql.javatime.*
+import org.jetbrains.exposed.sql.javatime.CurrentTimestamp
+import org.jetbrains.exposed.sql.javatime.timestamp
 import java.time.Instant
 
 object Users : UUIDTable("users") {
@@ -43,18 +44,18 @@ object Messages : UUIDTable("messages") {
     val contentUrl = text("content_url").nullable()
     val fileName = varchar("file_name", 255).nullable()
     val fileSize = long("file_size").nullable()
-    val timestamp: org.jetbrains.exposed.sql.Column<Instant> = timestamp("timestamp").defaultExpression(CurrentTimestamp())
+    val timestamp = timestamp("timestamp").defaultExpression(CurrentTimestamp())
     val status = varchar("status", 20).default("SENT")
-    val editedAt: org.jetbrains.exposed.sql.Column<Instant?> = timestamp("edited_at").nullable()
+    val editedAt = timestamp("edited_at").nullable()
     val replyToId = reference("reply_to_id", Messages).nullable()
-    val deletedAt: org.jetbrains.exposed.sql.Column<Instant?> = timestamp("deleted_at").nullable()
+    val deletedAt = timestamp("deleted_at").nullable()
 }
 
 object MessageStatus : Table("message_status") {
     val messageId = reference("message_id", Messages)
     val userId = reference("user_id", Users)
     val status = varchar("status", 20) // DELIVERED, READ
-    val timestamp: org.jetbrains.exposed.sql.Column<Instant> = timestamp("timestamp").defaultExpression(CurrentTimestamp())
+    val timestamp = timestamp("timestamp").defaultExpression(CurrentTimestamp())
     
     override val primaryKey = PrimaryKey(messageId, userId)
 }

@@ -4,6 +4,7 @@ import com.chatty.server.ChatRoomDto
 import com.chatty.server.data.DatabaseFactory.dbQuery
 import com.chatty.server.data.tables.*
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import java.time.Instant
 import java.util.*
 

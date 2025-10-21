@@ -111,7 +111,19 @@ sealed class WebSocketMessage {
     ) : WebSocketMessage()
     
     @Serializable
+    data class AuthenticationSuccess(
+        val userId: String,
+        val timestamp: String
+    ) : WebSocketMessage()
+    
+    @Serializable
     data class NewMessage(
+        val message: MessageDto
+    ) : WebSocketMessage()
+    
+    @Serializable
+    data class MessageSent(
+        val tempId: String,
         val message: MessageDto
     ) : WebSocketMessage()
     
@@ -137,6 +149,7 @@ sealed class WebSocketMessage {
     
     @Serializable
     data class Error(
-        val message: String
+        val message: String,
+        val code: String? = null
     ) : WebSocketMessage()
 }

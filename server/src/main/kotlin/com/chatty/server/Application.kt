@@ -229,47 +229,6 @@ sealed class ClientWebSocketMessage {
     ) : ClientWebSocketMessage()
 }
 
-// Server -> Client WebSocket Messages
-@Serializable
-sealed class WebSocketMessage {
-    @Serializable
-    data class Connected(
-        val userId: String,
-        val timestamp: String
-    ) : WebSocketMessage()
-    
-    @Serializable
-    data class AuthenticationSuccess(
-        val userId: String,
-        val timestamp: String
-    ) : WebSocketMessage()
-    
-    @Serializable
-    data class NewMessage(
-        val message: MessageDto
-    ) : WebSocketMessage()
-    
-    @Serializable
-    data class MessageSent(
-        val tempId: String,
-        val message: MessageDto
-    ) : WebSocketMessage()
-    
-    @Serializable
-    data class TypingIndicator(
-        val roomId: String,
-        val userId: String,
-        val username: String,
-        val isTyping: Boolean
-    ) : WebSocketMessage()
-    
-    @Serializable
-    data class Error(
-        val message: String,
-        val code: String? = null
-    ) : WebSocketMessage()
-}
-
 // ========================
 // SERVICES
 // ========================
