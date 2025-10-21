@@ -31,10 +31,11 @@ class AuthRepositoryImpl(
     
     override suspend fun register(
         username: String,
+        email: String,
         password: String,
         displayName: String
     ): Result<AuthTokens> {
-        return apiClient.register(RegisterRequest(username, password, displayName))
+        return apiClient.register(RegisterRequest(username, email, password, displayName))
             .mapCatching { response ->
                 tokenManager.saveAccessToken(response.token)
                 tokenManager.saveRefreshToken(response.refreshToken)

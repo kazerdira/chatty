@@ -192,10 +192,11 @@ private fun LoginForm(
 @Composable
 private fun RegisterForm(
     isLoading: Boolean,
-    onRegister: (String, String, String) -> Unit,
+    onRegister: (String, String, String, String) -> Unit,
     onSwitchToLogin: () -> Unit
 ) {
     var username by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
@@ -204,6 +205,7 @@ private fun RegisterForm(
     
     val passwordsMatch = password == confirmPassword
     val canRegister = username.isNotBlank() && 
+                     email.isNotBlank() &&
                      displayName.isNotBlank() && 
                      password.isNotBlank() && 
                      passwordsMatch
@@ -239,6 +241,23 @@ private fun RegisterForm(
             enabled = !isLoading,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Text,
+                imeAction = ImeAction.Next
+            ),
+            keyboardActions = KeyboardActions(
+                onNext = { focusManager.moveFocus(FocusDirection.Down) }
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
+        
+        // Email field
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Email") },
+            singleLine = true,
+            enabled = !isLoading,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Email,
                 imeAction = ImeAction.Next
             ),
             keyboardActions = KeyboardActions(
@@ -318,7 +337,7 @@ private fun RegisterForm(
                 onDone = { 
                     focusManager.clearFocus()
                     if (canRegister) {
-                        onRegister(username, password, displayName)
+                        onRegister(username, email, password, displayName)
                     }
                 }
             ),
@@ -333,7 +352,7 @@ private fun RegisterForm(
         
         // Register button
         Button(
-            onClick = { onRegister(username, password, displayName) },
+            onClick = { onRegister(username, email, password, displayName) },
             enabled = !isLoading && canRegister,
             modifier = Modifier.fillMaxWidth()
         ) {

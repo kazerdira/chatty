@@ -7,10 +7,11 @@ class RegisterUseCase(
 ) {
     suspend operator fun invoke(
         username: String,
+        email: String,
         password: String,
         displayName: String
     ): Result<Unit> {
-        return authRepository.register(username, password, displayName)
+        return authRepository.register(username, email, password, displayName)
             .map { }
     }
 }

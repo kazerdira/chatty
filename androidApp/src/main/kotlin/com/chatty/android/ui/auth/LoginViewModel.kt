@@ -48,12 +48,12 @@ class LoginViewModel(
         }
     }
     
-    fun register(username: String, password: String, displayName: String) {
+    fun register(username: String, email: String, password: String, displayName: String) {
         viewModelScope.launch {
-            println("📝 LoginViewModel: Starting registration for user: $username, displayName: $displayName")
+            println("📝 LoginViewModel: Starting registration for user: $username, email: $email, displayName: $displayName")
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
-            registerUseCase(username, password, displayName)
+            registerUseCase(username, email, password, displayName)
                 .onSuccess {
                     println("✅ LoginViewModel: Registration successful!")
                     _uiState.value = _uiState.value.copy(

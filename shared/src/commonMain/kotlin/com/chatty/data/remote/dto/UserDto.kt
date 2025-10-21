@@ -8,6 +8,8 @@ import kotlinx.serialization.Serializable
 data class UserDto(
     val id: String,
     val username: String,
+    val email: String,
+    val emailVerified: Boolean,
     val displayName: String,
     val avatarUrl: String?,
     val status: User.UserStatus,
