@@ -1,0 +1,101 @@
+# Gradle files
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# IntelliJ
+*.iml
+.idea/
+*.iws
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+# Android Studio
+.navigation/
+captures/
+.externalNativeBuild
+.cxx
+*.apk
+*.aab
+*.dex
+*.ap_
+*.class
+
+# Keystore files
+*.jks
+*.keystore
+
+# Google Services (e.g. APIs or Firebase)
+google-services.json
+
+# Android Profiling
+*.hprof
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Kotlin Multiplatform
+*.kotlin_module
+.kotlin/
+
+# Backup files
+*.bak
+*.swp
+*~
+
+# Log files
+*.log
+
+# Package Files
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# JVM crash logs
+hs_err_pid*
+replay_pid*
+
+# Temporal files
+.tmp/
+temp/
+
+# Server specific
+server/data/
+server/logs/
+
+# SQLDelight generated files
+**/sqldelight/
+
+# Documentation generated files
+**/kdoc/
+
+# Test results
+**/test-results/
+**/reports/
+
+# Gradle daemon lock files
+*.lock
+
+# Node modules (if using any JS tools)
+node_modules/
+
+# Environment variables
+.env
+.env.local

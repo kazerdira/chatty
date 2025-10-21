@@ -1,0 +1,16 @@
+object Versions {
+    const val kotlin = "1.9.22"
+    const val compose = "1.5.12"
+    const val ktor = "2.3.7"
+    const val coroutines = "1.7.3"
+    const val serialization = "1.6.2"
+    const val datetime = "0.5.0"
+    const val koin = "3.5.3"
+    const val koinCompose = "1.1.2"
+    const val sqldelight = "2.0.1"
+    const val exposed = "0.46.0"
+    const val postgresql = "42.7.1"
+    const val logback = "1.4.14"
+    const val kotest = "5.8.0"
+    const val mockk = "1.13.9"
+}
