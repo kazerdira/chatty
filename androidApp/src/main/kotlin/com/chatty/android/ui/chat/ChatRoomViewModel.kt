@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
 
 data class ChatRoomUiState(
     val messages: List<Message> = emptyList(),
@@ -94,8 +95,34 @@ class ChatRoomViewModel(
             
             val content = Message.MessageContent.Text(text)
             
-            // TODO: Get actual current user ID from auth
-            val currentUserId = User.UserId("current-user-mock")
+            // Get real current user ID
+            val currentUserId = _uiState.value.currentUserId?.let { User.UserId(it) } 
+                ?: run {
+                    _uiState.value = _uiState.value.copy(
+                        isSending = false,
+                        error = "Not authenticated"
+                    )
+                    return@launch
+                }
+            
+            // Create optimistic message with SENDING status
+            val tempMessageId = Message.MessageId("temp-${System.currentTimeMillis()}")
+            val optimisticMessage = Message(
+                id = tempMessageId,
+                roomId = chatRoomId,
+                senderId = currentUserId,
+                content = content,
+                timestamp = Clock.System.now(),
+                status = Message.MessageStatus.SENDING,
+                editedAt = null,
+                replyTo = null
+            )
+            
+            // Add optimistic message to UI immediately
+            val currentMessages = _uiState.value.messages
+            _uiState.value = _uiState.value.copy(
+                messages = currentMessages + optimisticMessage
+            )
             
             val params = SendMessageUseCase.SendMessageParams(
                 roomId = chatRoomId,
@@ -105,14 +132,26 @@ class ChatRoomViewModel(
             )
             
             sendMessageUseCase(params)
-                .onSuccess {
+                .onSuccess { realMessage ->
+                    // Replace optimistic message with real one (status: SENT)
+                    val updatedMessages = _uiState.value.messages.map { msg ->
+                        if (msg.id == tempMessageId) realMessage else msg
+                    }
                     _uiState.value = _uiState.value.copy(
+                        messages = updatedMessages,
                         isSending = false,
                         error = null
                     )
                 }
                 .onFailure { error ->
+                    // Mark message as FAILED
+                    val updatedMessages = _uiState.value.messages.map { msg ->
+                        if (msg.id == tempMessageId) {
+                            msg.copy(status = Message.MessageStatus.FAILED)
+                        } else msg
+                    }
                     _uiState.value = _uiState.value.copy(
+                        messages = updatedMessages,
                         isSending = false,
                         error = error.message ?: "Failed to send message"
                     )
