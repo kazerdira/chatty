@@ -20,6 +20,10 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import kotlin.math.min
 
+enum class WebSocketConnectionState {
+    DISCONNECTED, CONNECTING, CONNECTED, RECONNECTING, ERROR
+}
+
 class ChatApiClient(
     private val tokenManager: TokenManager,
     private val baseUrl: String = "http://localhost:8080"
@@ -64,12 +68,25 @@ class ChatApiClient(
     private val _incomingMessages = MutableSharedFlow<WebSocketMessage>(replay = 0)
     val incomingMessages: SharedFlow<WebSocketMessage> = _incomingMessages.asSharedFlow()
     
+    private val _connectionState = MutableStateFlow(WebSocketConnectionState.DISCONNECTED)
+    val connectionState: StateFlow<WebSocketConnectionState> = _connectionState.asStateFlow()
+    
     private var isConnecting = false
+    private var reconnectAttempt = 0
+    private val maxReconnectAttempts = 10
     
     suspend fun connectWebSocket() {
         if (isConnecting || websocketSession != null) return
         
         isConnecting = true
+        _connectionState.value = if (reconnectAttempt > 0) {
+            WebSocketConnectionState.RECONNECTING
+        } else {
+            WebSocketConnectionState.CONNECTING
+        }
+        
+        println("🔌 WebSocket: Connecting... (attempt ${reconnectAttempt + 1})")
+        
         try {
             val token = tokenManager.getAccessToken() ?: throw IllegalStateException("No access token")
             
@@ -82,6 +99,10 @@ class ChatApiClient(
                 header(HttpHeaders.Authorization, "Bearer $token")
             }
             
+            _connectionState.value = WebSocketConnectionState.CONNECTED
+            reconnectAttempt = 0 // Reset on successful connection
+            println("✅ WebSocket: Connected successfully")
+            
             // Start listening to messages
             websocketSession?.incoming?.consumeAsFlow()?.collect { frame ->
                 when (frame) {
@@ -89,16 +110,31 @@ class ChatApiClient(
                         try {
                             val text = frame.readText()
                             val message = Json.decodeFromString<WebSocketMessage>(text)
+                            println("📨 WebSocket: Received message: ${message::class.simpleName}")
                             _incomingMessages.emit(message)
                         } catch (e: Exception) {
-                            println("Error parsing WebSocket message: ${e.message}")
+                            println("⚠️ WebSocket: Error parsing message: ${e.message}")
                         }
+                    }
+                    is Frame.Close -> {
+                        println("🔌 WebSocket: Connection closed by server")
+                        websocketSession = null
+                        _connectionState.value = WebSocketConnectionState.DISCONNECTED
                     }
                     else -> {}
                 }
             }
+            
+            // If collect finishes, connection was closed
+            println("🔌 WebSocket: Connection closed")
+            websocketSession = null
+            _connectionState.value = WebSocketConnectionState.DISCONNECTED
+            reconnectWithBackoff()
+            
         } catch (e: Exception) {
-            println("WebSocket connection error: ${e.message}")
+            println("❌ WebSocket: Connection error: ${e.message}")
+            websocketSession = null
+            _connectionState.value = WebSocketConnectionState.ERROR
             reconnectWithBackoff()
         } finally {
             isConnecting = false
@@ -106,32 +142,48 @@ class ChatApiClient(
     }
     
     private suspend fun reconnectWithBackoff() {
-        var backoffDelay = 1000L
-        val maxDelay = 32000L
-        
-        while (true) {
-            delay(backoffDelay)
-            
-            try {
-                connectWebSocket()
-                break
-            } catch (e: Exception) {
-                backoffDelay = min(backoffDelay * 2, maxDelay)
-            }
+        if (reconnectAttempt >= maxReconnectAttempts) {
+            println("❌ WebSocket: Max reconnection attempts ($maxReconnectAttempts) reached. Giving up.")
+            _connectionState.value = WebSocketConnectionState.ERROR
+            return
         }
+        
+        reconnectAttempt++
+        
+        // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 32s
+        val backoffDelay = min(1000L * (1 shl (reconnectAttempt - 1)), 32000L)
+        
+        println("⏳ WebSocket: Reconnecting in ${backoffDelay / 1000}s (attempt $reconnectAttempt/$maxReconnectAttempts)")
+        _connectionState.value = WebSocketConnectionState.RECONNECTING
+        
+        delay(backoffDelay)
+        
+        connectWebSocket()
     }
     
     suspend fun sendMessage(message: WebSocketMessage): Result<Unit> {
         return runCatching {
             val session = websocketSession ?: throw IllegalStateException("WebSocket not connected")
             val text = Json.encodeToString(message)
+            println("📤 WebSocket: Sending message: ${message::class.simpleName}")
             session.send(Frame.Text(text))
         }
     }
     
     suspend fun disconnectWebSocket() {
+        println("🔌 WebSocket: Disconnecting...")
+        reconnectAttempt = maxReconnectAttempts // Prevent auto-reconnect
         websocketSession?.close()
         websocketSession = null
+        _connectionState.value = WebSocketConnectionState.DISCONNECTED
+    }
+    
+    suspend fun retryConnection() {
+        println("🔄 WebSocket: Manual retry requested")
+        reconnectAttempt = 0 // Reset attempts for manual retry
+        if (websocketSession == null) {
+            connectWebSocket()
+        }
     }
     
     // HTTP API methods
