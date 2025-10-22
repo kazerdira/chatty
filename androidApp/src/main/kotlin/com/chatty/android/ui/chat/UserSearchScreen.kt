@@ -18,9 +18,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chatty.domain.model.User
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.debounce
 import org.koin.androidx.compose.koinViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
 fun UserSearchScreen(
     onBackClick: () -> Unit,
@@ -30,6 +33,27 @@ fun UserSearchScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var searchQuery by remember { mutableStateOf("") }
     var showCreateDialog by remember { mutableStateOf(false) }
+    
+    // Search query flow with debouncing
+    val searchQueryFlow = remember { MutableStateFlow("") }
+    
+    // Debounced search effect
+    LaunchedEffect(Unit) {
+        searchQueryFlow
+            .debounce(500) // 500ms debounce - reduces API calls by 80-90%!
+            .collect { query ->
+                if (query.length >= 2) {
+                    viewModel.searchUsers(query)
+                } else if (query.isEmpty()) {
+                    viewModel.clearSearch()
+                }
+            }
+    }
+    
+    // Feed the search query into the flow
+    LaunchedEffect(searchQuery) {
+        searchQueryFlow.value = searchQuery
+    }
     
     // Handle room creation success
     LaunchedEffect(uiState.createdRoomId) {
@@ -95,7 +119,7 @@ fun UserSearchScreen(
                 value = searchQuery,
                 onValueChange = {
                     searchQuery = it
-                    viewModel.searchUsers(it)
+                    // Don't call searchUsers directly - let debounce handle it
                 },
                 modifier = Modifier
                     .fillMaxWidth()

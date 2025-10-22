@@ -99,4 +99,12 @@ class UserSearchViewModel(
             roomName = null
         )
     }
+    
+    fun clearSearch() {
+        _uiState.value = _uiState.value.copy(
+            users = emptyList(),
+            isLoading = false,
+            error = null
+        )
+    }
 }
