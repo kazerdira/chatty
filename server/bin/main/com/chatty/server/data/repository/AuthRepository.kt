@@ -33,7 +33,8 @@ class AuthRepository {
                 displayName = user.first[Users.displayName],
                 avatarUrl = user.first[Users.avatarUrl] ?: "",
                 status = user.first[Users.status],
-                lastSeen = user.first[Users.lastSeen].toString()
+                lastSeen = user.first[Users.lastSeen].toString(),
+                createdAt = user.first[Users.createdAt].toString()
             )
         } else {
             null
@@ -149,5 +150,6 @@ data class UserDto(
     val displayName: String,
     val avatarUrl: String,
     val status: String,
-    val lastSeen: String
+    val lastSeen: String,
+    val createdAt: String
 )

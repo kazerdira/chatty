@@ -218,7 +218,8 @@ data class UserDto(
     val displayName: String,
     val avatarUrl: String,
     val status: String,
-    val lastSeen: String?
+    val lastSeen: String?,
+    val createdAt: String
 )
 
 @Serializable

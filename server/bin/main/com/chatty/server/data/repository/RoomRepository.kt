@@ -46,18 +46,33 @@ class RoomRepository(
             }
         }
         
-        getRoomById(roomId.value.toString())!!
+        val createdRoom = getRoomById(roomId.value.toString())
+        if (createdRoom == null) {
+            println("ERROR: Failed to retrieve newly created room with ID: ${roomId.value}")
+            throw RuntimeException("Failed to create room")
+        }
+        createdRoom
     }
     
     suspend fun getRoomById(roomId: String): ChatRoomDto? = dbQuery {
+        println("DEBUG: Getting room by ID: $roomId")
         val room = ChatRooms.select { ChatRooms.id eq UUID.fromString(roomId) }
-            .firstOrNull() ?: return@dbQuery null
+            .firstOrNull()
         
+        if (room == null) {
+            println("DEBUG: Room not found in ChatRooms table")
+            return@dbQuery null
+        }
+        
+        println("DEBUG: Room found, getting participants...")
         val participants = RoomParticipants
             .innerJoin(Users)
             .select { RoomParticipants.roomId eq UUID.fromString(roomId) }
             .map { it[Users.id].value.toString() }
         
+        println("DEBUG: Found ${participants.size} participants")
+        
+        println("DEBUG: Getting last message...")
         val lastMessage = (Messages innerJoin Users)
             .select { Messages.roomId eq UUID.fromString(roomId) }
             .orderBy(Messages.timestamp to SortOrder.DESC)
@@ -65,7 +80,8 @@ class RoomRepository(
             .map { toSimpleMessageDto(it) }
             .firstOrNull()
         
-        ChatRoomDto(
+        println("DEBUG: Creating ChatRoomDto...")
+        val chatRoomDto = ChatRoomDto(
             id = roomId,
             name = room[ChatRooms.name],
             type = room[ChatRooms.type],
@@ -76,6 +92,9 @@ class RoomRepository(
             updatedAt = room[ChatRooms.updatedAt].toString(),
             avatarUrl = room[ChatRooms.avatarUrl]
         )
+        
+        println("DEBUG: ChatRoomDto created successfully")
+        chatRoomDto
     }
     
     suspend fun getRoomsForUser(userId: String): List<ChatRoomDto> = dbQuery {

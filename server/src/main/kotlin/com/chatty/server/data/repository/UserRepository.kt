@@ -119,6 +119,7 @@ class UserRepository {
         displayName = row[Users.displayName],
         avatarUrl = row[Users.avatarUrl] ?: "",
         status = row[Users.status],
-        lastSeen = row[Users.lastSeen].toString()
+        lastSeen = row[Users.lastSeen].toString(),
+        createdAt = row[Users.createdAt].toString()
     )
 }
