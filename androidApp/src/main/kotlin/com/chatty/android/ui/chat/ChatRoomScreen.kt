@@ -33,21 +33,26 @@ fun ChatRoomScreen(
     
     val listState = rememberLazyListState()
     var messageText by remember { mutableStateOf("") }
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Show error in Snackbar with retry option
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let { error ->
+            val result = snackbarHostState.showSnackbar(
+                message = error,
+                actionLabel = "Retry",
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.retryLoadMessages()
+            }
+        }
+    }
     
     // Auto-scroll to bottom when new messages arrive
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
             listState.animateScrollToItem(uiState.messages.size - 1)
-        }
-    }
-    
-    // Show error snackbar
-    val snackbarHostState = remember { SnackbarHostState() }
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let { error ->
-            snackbarHostState.showSnackbar(error)
-            // TODO: Call viewModel when available
-            // viewModel?.clearError()
         }
     }
     

@@ -247,11 +247,48 @@ class ChatApiClient(
             val result = block()
             println("✅ API call successful")
             Result.success(result)
+        } catch (e: ClientRequestException) {
+            // 4xx errors - client errors
+            val errorMessage = when (e.response.status.value) {
+                400 -> "Invalid request. Please check your input."
+                401 -> "Authentication failed. Please log in again."
+                403 -> "You don't have permission to access this resource."
+                404 -> "Resource not found."
+                409 -> "Conflict. This resource already exists."
+                422 -> "Validation failed. Please check your input."
+                429 -> "Too many requests. Please try again later."
+                else -> "Request failed: ${e.response.status.description}"
+            }
+            println("❌ Client error (${e.response.status.value}): $errorMessage")
+            Result.failure(Exception(errorMessage))
+        } catch (e: ServerResponseException) {
+            // 5xx errors - server errors
+            val errorMessage = when (e.response.status.value) {
+                500 -> "Server error. Please try again later."
+                502 -> "Bad gateway. Server is temporarily unavailable."
+                503 -> "Service unavailable. Please try again later."
+                504 -> "Gateway timeout. Please try again."
+                else -> "Server error: ${e.response.status.description}"
+            }
+            println("❌ Server error (${e.response.status.value}): $errorMessage")
+            Result.failure(Exception(errorMessage))
+        } catch (e: HttpRequestTimeoutException) {
+            println("❌ Request timeout")
+            Result.failure(Exception("Request timed out. Please check your connection and try again."))
         } catch (e: Exception) {
-            println("❌ API call failed: ${e.message}")
+            val errorMessage = when {
+                e.message?.contains("Unable to resolve host") == true -> 
+                    "Network error. Please check your internet connection."
+                e.message?.contains("Connection refused") == true -> 
+                    "Cannot connect to server. Please make sure the server is running."
+                e.message?.contains("Connection reset") == true -> 
+                    "Connection lost. Please try again."
+                else -> e.message ?: "Unknown error occurred. Please try again."
+            }
+            println("❌ API call failed: $errorMessage")
             println("❌ Exception type: ${e::class.simpleName}")
             e.printStackTrace()
-            Result.failure(e)
+            Result.failure(Exception(errorMessage))
         }
     }
 }

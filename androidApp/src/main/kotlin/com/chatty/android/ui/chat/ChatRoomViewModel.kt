@@ -139,4 +139,12 @@ class ChatRoomViewModel(
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }
+    
+    fun retryLoadMessages() {
+        loadInitialMessages()
+    }
+    
+    fun retrySendMessage(text: String) {
+        sendMessage(text)
+    }
 }

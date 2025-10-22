@@ -33,6 +33,21 @@ fun UserSearchScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var searchQuery by remember { mutableStateOf("") }
     var showCreateDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Show error in Snackbar with retry option
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let { error ->
+            val result = snackbarHostState.showSnackbar(
+                message = error,
+                actionLabel = "Retry",
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.retrySearch(searchQuery)
+            }
+        }
+    }
     
     // Search query flow with debouncing
     val searchQueryFlow = remember { MutableStateFlow("") }
@@ -75,6 +90,7 @@ fun UserSearchScreen(
     }
     
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("New Chat") },
