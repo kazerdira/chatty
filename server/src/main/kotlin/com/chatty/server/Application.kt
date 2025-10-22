@@ -659,6 +659,18 @@ fun Route.messageRoutes(
 
 fun Route.userRoutes(userRepository: UserRepository) {
     route("/users") {
+        // Get current authenticated user
+        get("/me") {
+            val principal = call.principal<JWTPrincipal>()
+                ?: throw UnauthorizedException("Not authenticated")
+            val userId = principal.payload.getClaim("userId").asString()
+            
+            val user = userRepository.getUserById(userId)
+                ?: throw NotFoundException("User not found")
+            
+            call.respond(HttpStatusCode.OK, user)
+        }
+        
         get("/search") {
             val query = call.request.queryParameters["q"] ?: ""
             
@@ -728,12 +740,26 @@ fun Route.webSocketRoute(
                                 }
                                 
                                 is ClientWebSocketMessage.JoinRoom -> {
+                                    if (currentUserId == null) {
+                                        outgoing.send(Frame.Text(Json.encodeToString(
+                                            WebSocketMessage.serializer(),
+                                            WebSocketMessage.Error("Not authenticated")
+                                        )))
+                                        continue
+                                    }
                                     currentUserId?.let { userId ->
                                         webSocketManager.joinRoom(userId, message.roomId)
                                     }
                                 }
                                 
                                 is ClientWebSocketMessage.SendMessage -> {
+                                    if (currentUserId == null) {
+                                        outgoing.send(Frame.Text(Json.encodeToString(
+                                            WebSocketMessage.serializer(),
+                                            WebSocketMessage.Error("Not authenticated")
+                                        )))
+                                        continue
+                                    }
                                     currentUserId?.let { userId ->
                                         val sendRequest = SendMessageRequest(
                                             roomId = message.roomId,
@@ -763,6 +789,13 @@ fun Route.webSocketRoute(
                                 }
                                 
                                 is ClientWebSocketMessage.TypingIndicator -> {
+                                    if (currentUserId == null) {
+                                        outgoing.send(Frame.Text(Json.encodeToString(
+                                            WebSocketMessage.serializer(),
+                                            WebSocketMessage.Error("Not authenticated")
+                                        )))
+                                        continue
+                                    }
                                     currentUserId?.let { userId ->
                                         val user = userRepository.getUserById(userId)
                                         webSocketManager.broadcastToRoom(

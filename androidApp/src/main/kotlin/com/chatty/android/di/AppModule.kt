@@ -98,7 +98,8 @@ val appModule = module {
             roomId = roomId,
             sendMessageUseCase = get(),
             observeMessagesUseCase = get(),
-            getMessagesUseCase = get()
+            getMessagesUseCase = get(),
+            userRepository = get()
         )
     }
 }

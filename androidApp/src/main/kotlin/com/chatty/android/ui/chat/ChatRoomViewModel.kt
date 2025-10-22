@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.chatty.domain.model.ChatRoom
 import com.chatty.domain.model.Message
 import com.chatty.domain.model.User
+import com.chatty.domain.repository.UserRepository
 import com.chatty.domain.usecase.GetMessagesUseCase
 import com.chatty.domain.usecase.ObserveMessagesUseCase
 import com.chatty.domain.usecase.SendMessageUseCase
@@ -15,6 +16,7 @@ import kotlinx.coroutines.launch
 
 data class ChatRoomUiState(
     val messages: List<Message> = emptyList(),
+    val currentUserId: String? = null,
     val isLoading: Boolean = false,
     val isSending: Boolean = false,
     val error: String? = null
@@ -24,7 +26,8 @@ class ChatRoomViewModel(
     private val roomId: String,
     private val sendMessageUseCase: SendMessageUseCase,
     private val observeMessagesUseCase: ObserveMessagesUseCase,
-    private val getMessagesUseCase: GetMessagesUseCase
+    private val getMessagesUseCase: GetMessagesUseCase,
+    private val userRepository: UserRepository
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(ChatRoomUiState())
@@ -33,8 +36,21 @@ class ChatRoomViewModel(
     private val chatRoomId = ChatRoom.RoomId(roomId)
     
     init {
+        loadCurrentUser()
         observeMessages()
         loadInitialMessages()
+    }
+    
+    private fun loadCurrentUser() {
+        viewModelScope.launch {
+            val userId = userRepository.getCurrentUserId()
+            _uiState.value = _uiState.value.copy(currentUserId = userId)
+        }
+    }
+    
+    fun isOwnMessage(message: Message): Boolean {
+        val currentUserId = _uiState.value.currentUserId ?: return false
+        return message.senderId.value == currentUserId
     }
     
     private fun observeMessages() {

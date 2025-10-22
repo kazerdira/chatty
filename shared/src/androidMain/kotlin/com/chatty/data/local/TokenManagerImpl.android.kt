@@ -37,11 +37,41 @@ actual class TokenManagerImpl(private val context: Context) : TokenManager {
         sharedPreferences.edit()
             .remove(KEY_ACCESS_TOKEN)
             .remove(KEY_REFRESH_TOKEN)
+            .remove(KEY_USER_ID)
+            .remove(KEY_USERNAME)
+            .remove(KEY_DISPLAY_NAME)
             .apply()
+    }
+    
+    override suspend fun saveUserId(userId: String) {
+        sharedPreferences.edit().putString(KEY_USER_ID, userId).apply()
+    }
+    
+    override suspend fun getUserId(): String? {
+        return sharedPreferences.getString(KEY_USER_ID, null)
+    }
+    
+    override suspend fun saveUserInfo(userId: String, username: String, displayName: String) {
+        sharedPreferences.edit()
+            .putString(KEY_USER_ID, userId)
+            .putString(KEY_USERNAME, username)
+            .putString(KEY_DISPLAY_NAME, displayName)
+            .apply()
+    }
+    
+    override suspend fun getUsername(): String? {
+        return sharedPreferences.getString(KEY_USERNAME, null)
+    }
+    
+    override suspend fun getDisplayName(): String? {
+        return sharedPreferences.getString(KEY_DISPLAY_NAME, null)
     }
     
     companion object {
         private const val KEY_ACCESS_TOKEN = "access_token"
         private const val KEY_REFRESH_TOKEN = "refresh_token"
+        private const val KEY_USER_ID = "user_id"
+        private const val KEY_USERNAME = "username"
+        private const val KEY_DISPLAY_NAME = "display_name"
     }
 }

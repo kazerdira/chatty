@@ -117,7 +117,10 @@ fun ChatRoomScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(uiState.messages, key = { it.id.value }) { message ->
-                            MessageBubble(message = message)
+                            MessageBubble(
+                                message = message,
+                                viewModel = viewModel
+                            )
                         }
                     }
                 }
@@ -176,11 +179,10 @@ private fun MessageInputBar(
 
 @Composable
 private fun MessageBubble(
-    message: Message
+    message: Message,
+    viewModel: ChatRoomViewModel
 ) {
-    // TODO: Get current user ID from repository/viewmodel
-    // For now, we'll show all messages aligned to the right
-    val isOwnMessage = true // Placeholder
+    val isOwnMessage = viewModel.isOwnMessage(message)
     
     Row(
         modifier = Modifier.fillMaxWidth(),

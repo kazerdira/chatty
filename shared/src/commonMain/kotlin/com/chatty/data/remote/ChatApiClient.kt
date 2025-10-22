@@ -146,6 +146,15 @@ class ChatApiClient(
             println("🔐 ChatApiClient: Login response status: ${response.status}")
             val body: AuthResponse = response.body()
             println("🔐 ChatApiClient: Login successful! Token: ${body.token.take(20)}...")
+            
+            // Save user info to TokenManager
+            tokenManager.saveUserInfo(
+                userId = body.userId,
+                username = body.username,
+                displayName = body.displayName
+            )
+            println("💾 ChatApiClient: User info saved - ID: ${body.userId}, Username: ${body.username}")
+            
             body
         }
     }
@@ -162,6 +171,15 @@ class ChatApiClient(
             println("📝 ChatApiClient: Register response status: ${response.status}")
             val body: AuthResponse = response.body()
             println("📝 ChatApiClient: Registration successful! Token: ${body.token.take(20)}...")
+            
+            // Save user info to TokenManager
+            tokenManager.saveUserInfo(
+                userId = body.userId,
+                username = body.username,
+                displayName = body.displayName
+            )
+            println("💾 ChatApiClient: User info saved - ID: ${body.userId}, Username: ${body.username}")
+            
             body
         }
     }

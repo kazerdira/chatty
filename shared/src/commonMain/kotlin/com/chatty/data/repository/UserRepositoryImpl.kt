@@ -18,6 +18,10 @@ class UserRepositoryImpl(
         return null
     }
     
+    override suspend fun getCurrentUserId(): String? {
+        return tokenManager.getUserId()
+    }
+    
     override suspend fun getUser(userId: User.UserId): User? {
         // TODO: Implement when we have a GET /users/{id} endpoint
         return null
