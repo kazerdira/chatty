@@ -94,11 +94,11 @@ fun ChattyApp() {
                 onBackClick = {
                     navController.popBackStack()
                 },
-                onCreateChat = { userIds, roomName ->
+                onCreateChat = { roomId, roomName ->
                     // Navigate to the newly created room
-                    // The UserSearchViewModel will handle room creation
-                    // For now, navigate back to chat list
-                    navController.popBackStack()
+                    navController.navigate("chatRoom/$roomId") {
+                        popUpTo("chatList") { inclusive = false }
+                    }
                 }
             )
         }

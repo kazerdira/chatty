@@ -68,6 +68,11 @@ sealed class WebSocketMessage {
     ) : WebSocketMessage()
     
     @Serializable
+    data class NewRoom(
+        val room: ChatRoomDto
+    ) : WebSocketMessage()
+    
+    @Serializable
     data class Error(
         val code: String,
         val message: String

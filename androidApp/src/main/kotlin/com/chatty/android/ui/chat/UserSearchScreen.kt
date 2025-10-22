@@ -24,7 +24,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun UserSearchScreen(
     onBackClick: () -> Unit,
-    onCreateChat: (List<User.UserId>, String) -> Unit
+    onCreateChat: (String, String) -> Unit
 ) {
     val viewModel: UserSearchViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -34,7 +34,8 @@ fun UserSearchScreen(
     // Handle room creation success
     LaunchedEffect(uiState.createdRoomId) {
         uiState.createdRoomId?.let { roomId ->
-            onCreateChat(uiState.selectedUsers.map { it.id }, uiState.roomName ?: "New Chat")
+            onCreateChat(roomId, uiState.roomName ?: "New Chat")
+            viewModel.resetCreatedRoom() // Clear the state
         }
     }
     

@@ -96,6 +96,18 @@ class WebSocketManager {
     fun isUserOnline(userId: String): Boolean {
         return userSessions.containsKey(userId)
     }
+    
+    /**
+     * Broadcast new room notification to specific users
+     */
+    suspend fun notifyNewRoom(room: ChatRoomDto, participantIds: List<String>) {
+        val message = WebSocketMessage.NewRoom(room)
+        println("📢 Notifying ${participantIds.size} users about new room: ${room.name}")
+        
+        participantIds.forEach { userId ->
+            sendToUser(userId, message)
+        }
+    }
 }
 
 // ========================
@@ -145,6 +157,11 @@ sealed class WebSocketMessage {
     data class UserStatusUpdate(
         val userId: String,
         val status: String
+    ) : WebSocketMessage()
+    
+    @Serializable
+    data class NewRoom(
+        val room: ChatRoomDto
     ) : WebSocketMessage()
     
     @Serializable

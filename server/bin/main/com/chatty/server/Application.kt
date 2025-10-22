@@ -425,7 +425,7 @@ fun Application.module(config: AppConfig.Config) {
         authRoutes(authRepository, authService, userRepository)
         
         authenticate("auth-jwt") {
-            roomRoutes(roomRepository)
+            roomRoutes(roomRepository, webSocketManager)
             messageRoutes(messageService, roomRepository)
             userRoutes(userRepository)
         }
@@ -542,7 +542,7 @@ fun Route.authRoutes(
     }
 }
 
-fun Route.roomRoutes(roomRepository: RoomRepository) {
+fun Route.roomRoutes(roomRepository: RoomRepository, webSocketManager: WebSocketManager) {
     route("/rooms") {
         get {
             val principal = call.principal<JWTPrincipal>()!!
@@ -588,6 +588,9 @@ fun Route.roomRoutes(roomRepository: RoomRepository) {
                 creatorId = userId,
                 participantIds = allParticipants
             )
+            
+            // Notify all participants about the new room via WebSocket
+            webSocketManager.notifyNewRoom(room, allParticipants)
             
             call.respond(HttpStatusCode.Created, room)
         }

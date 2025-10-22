@@ -2,6 +2,7 @@ package com.chatty.data.repository
 
 import com.chatty.data.local.TokenManager
 import com.chatty.data.remote.ChatApiClient
+import com.chatty.data.remote.dto.WebSocketMessage
 import com.chatty.data.remote.dto.toEntity
 import com.chatty.database.ChatDatabase
 import com.chatty.domain.model.ChatRoom
@@ -11,6 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 class ChatRoomRepositoryImpl(
     private val apiClient: ChatApiClient,
@@ -20,6 +22,26 @@ class ChatRoomRepositoryImpl(
 ) : ChatRoomRepository {
     
     private val _rooms = MutableStateFlow<List<ChatRoom>>(emptyList())
+    
+    init {
+        // Listen for WebSocket messages
+        scope.launch {
+            apiClient.incomingMessages.collect { message ->
+                when (message) {
+                    is WebSocketMessage.NewRoom -> {
+                        // Add new room to the list
+                        val newRoom = message.room.toEntity()
+                        val currentRooms = _rooms.value
+                        if (currentRooms.none { it.id == newRoom.id }) {
+                            _rooms.value = currentRooms + newRoom
+                            println("✅ New room received via WebSocket: ${newRoom.name}")
+                        }
+                    }
+                    else -> {} // Handle other message types elsewhere
+                }
+            }
+        }
+    }
     
     override suspend fun createRoom(
         name: String,

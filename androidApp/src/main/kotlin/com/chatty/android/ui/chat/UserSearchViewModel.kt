@@ -92,4 +92,11 @@ class UserSearchViewModel(
             }
         }
     }
+    
+    fun resetCreatedRoom() {
+        _uiState.value = _uiState.value.copy(
+            createdRoomId = null,
+            roomName = null
+        )
+    }
 }
