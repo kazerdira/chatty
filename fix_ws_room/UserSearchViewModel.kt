@@ -73,6 +73,7 @@ class UserSearchViewModel(
             _uiState.value = _uiState.value.copy(isCreating = true, error = null)
             
             try {
+                // First, ensure WebSocket is connected
                 println("🔌 UserSearchViewModel: Checking WebSocket connection...")
                 
                 val connectionState = apiClient.connectionState.value

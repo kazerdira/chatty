@@ -92,8 +92,17 @@ val appModule = module {
     
     // ViewModels
     viewModel { LoginViewModel(get(), get(), get()) }
-    viewModel { ChatListViewModel(get(), get(), get()) }  // ✅ Added ChatRoomRepository
-    viewModel { UserSearchViewModel(get(), get(), get()) }  // ✅ Add apiClient
+    viewModel { ChatListViewModel(get(), get()) }
+    
+    // FIXED: Add ChatApiClient dependency to UserSearchViewModel
+    viewModel { 
+        UserSearchViewModel(
+            searchUsersUseCase = get(),
+            createRoomUseCase = get(),
+            apiClient = get() // ADDED THIS
+        ) 
+    }
+    
     viewModel { (roomId: String) -> 
         ChatRoomViewModel(
             roomId = roomId,

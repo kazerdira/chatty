@@ -77,7 +77,15 @@ class ChatApiClient(
     private val maxReconnectAttempts = 10
     
     suspend fun connectWebSocket() {
-        if (isConnecting || websocketSession != null) return
+        if (isConnecting) {
+            println("🔌 WebSocket: Already connecting, skipping...")
+            return
+        }
+        
+        if (websocketSession != null) {
+            println("🔌 WebSocket: Already connected, skipping...")
+            return
+        }
         
         isConnecting = true
         _connectionState.value = if (reconnectAttempt > 0) {
@@ -89,7 +97,24 @@ class ChatApiClient(
         println("🔌 WebSocket: Connecting... (attempt ${reconnectAttempt + 1})")
         
         try {
-            val token = tokenManager.getAccessToken() ?: throw IllegalStateException("No access token")
+            // Wait a bit to ensure tokens are fully saved and available
+            delay(300)
+            
+            val token = tokenManager.getAccessToken()
+            val userId = tokenManager.getUserId()
+            
+            // Validate prerequisites
+            if (token == null) {
+                println("❌ WebSocket: No access token found!")
+                throw IllegalStateException("No access token available")
+            }
+            
+            if (userId == null) {
+                println("❌ WebSocket: No user ID found!")
+                throw IllegalStateException("No user ID - please logout and login again")
+            }
+            
+            println("🔐 WebSocket: Connecting with userId: $userId, token: ${token.take(15)}...")
             
             websocketSession = websocketClient.webSocketSession {
                 url {
@@ -101,24 +126,14 @@ class ChatApiClient(
             }
             
             _connectionState.value = WebSocketConnectionState.CONNECTED
-            reconnectAttempt = 0 // Reset on successful connection
+            reconnectAttempt = 0
             println("✅ WebSocket: Connected successfully")
             
             // Send authentication message with user ID
-            val userId = tokenManager.getUserId()
-            println("🔍 WebSocket: Checking authentication - userId from token: $userId")
-            
-            if (userId != null) {
-                val authMessage = ClientWebSocketMessage.Authenticate(userId)
-                val authJson = Json.encodeToString(authMessage)
-                websocketSession?.send(Frame.Text(authJson))
-                println("🔐 WebSocket: Sent authentication for user: $userId")
-            } else {
-                println("❌ WebSocket: CRITICAL - No user ID found!")
-                println("❌ This means user logged in before Fix #6")
-                println("❌ User must logout and login again to save user ID")
-                _connectionState.value = WebSocketConnectionState.ERROR
-            }
+            val authMessage = ClientWebSocketMessage.Authenticate(userId)
+            val authJson = Json.encodeToString(ClientWebSocketMessage.serializer(), authMessage)
+            websocketSession?.send(Frame.Text(authJson))
+            println("🔐 WebSocket: Authentication message sent for user: $userId")
             
             // Start listening to messages
             websocketSession?.incoming?.consumeAsFlow()?.collect { frame ->
@@ -131,10 +146,12 @@ class ChatApiClient(
                             _incomingMessages.emit(message)
                         } catch (e: Exception) {
                             println("⚠️ WebSocket: Error parsing message: ${e.message}")
+                            e.printStackTrace()
                         }
                     }
                     is Frame.Close -> {
-                        println("🔌 WebSocket: Connection closed by server")
+                        val reason = closeReason.await()
+                        println("🔌 WebSocket: Connection closed by server: $reason")
                         websocketSession = null
                         _connectionState.value = WebSocketConnectionState.DISCONNECTED
                     }
@@ -150,6 +167,7 @@ class ChatApiClient(
             
         } catch (e: Exception) {
             println("❌ WebSocket: Connection error: ${e.message}")
+            e.printStackTrace()
             websocketSession = null
             _connectionState.value = WebSocketConnectionState.ERROR
             reconnectWithBackoff()
@@ -313,8 +331,9 @@ class ChatApiClient(
         limit: Int = 50
     ): Result<List<MessageDto>> {
         return safeApiCall {
-            httpClient.get("$baseUrl/rooms/$roomId/messages") {
+            httpClient.get("$baseUrl/messages") {  // ✅ FIXED: Correct endpoint
                 bearerAuth(tokenManager.getAccessToken() ?: "")
+                parameter("roomId", roomId)  // ✅ FIXED: Add as query parameter
                 parameter("limit", limit)
                 before?.let { parameter("before", it) }
             }.body()

@@ -5,13 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.chatty.data.remote.ChatApiClient
 import com.chatty.data.remote.WebSocketConnectionState
 import com.chatty.domain.model.ChatRoom
-import com.chatty.domain.repository.ChatRoomRepository
 import com.chatty.domain.usecase.ObserveRoomsUseCase
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 data class ChatListUiState(
     val rooms: List<ChatRoom> = emptyList(),
@@ -21,29 +21,30 @@ data class ChatListUiState(
 
 class ChatListViewModel(
     private val observeRoomsUseCase: ObserveRoomsUseCase,
-    private val apiClient: ChatApiClient,
-    private val roomRepository: ChatRoomRepository  // ✅ Add dependency for manual refresh
+    private val apiClient: ChatApiClient
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(ChatListUiState())
     val uiState: StateFlow<ChatListUiState> = _uiState.asStateFlow()
     
     init {
-        // Connect WebSocket when entering chat list (in case user bypassed login with saved token)
+        // Wait for WebSocket to connect, then load rooms
         viewModelScope.launch {
-            println("🔌 ChatListViewModel: Ensuring WebSocket is connected...")
-            apiClient.connectWebSocket()
-        }
-        loadRooms()
-        
-        // ✅ NEW: Periodic refresh fallback (every 30 seconds)
-        viewModelScope.launch {
-            while (true) {
-                delay(30_000)  // 30 seconds
-                if (apiClient.connectionState.value != WebSocketConnectionState.CONNECTED) {
-                    println("⚠️ WebSocket disconnected, manually refreshing rooms...")
-                    refreshRooms()
-                }
+            println("🔌 ChatListViewModel: Waiting for WebSocket connection...")
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            
+            // Wait for WebSocket to be connected (timeout after 10 seconds)
+            val connected = withTimeoutOrNull(10000) {
+                apiClient.connectionState.first { it == WebSocketConnectionState.CONNECTED }
+            } != null
+            
+            if (connected) {
+                println("✅ ChatListViewModel: WebSocket connected, loading rooms...")
+                loadRooms()
+            } else {
+                println("⚠️ ChatListViewModel: WebSocket connection timeout, loading rooms anyway...")
+                // Load rooms even if WebSocket fails - we can still use HTTP API
+                loadRooms()
             }
         }
     }
@@ -55,6 +56,7 @@ class ChatListViewModel(
             try {
                 observeRoomsUseCase()
                     .collect { rooms ->
+                        println("📋 ChatListViewModel: Received ${rooms.size} rooms")
                         _uiState.value = _uiState.value.copy(
                             rooms = rooms,
                             isLoading = false,
@@ -62,6 +64,8 @@ class ChatListViewModel(
                         )
                     }
             } catch (error: Exception) {
+                println("❌ ChatListViewModel: Error loading rooms: ${error.message}")
+                error.printStackTrace()
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = error.message ?: "Failed to load chats"
@@ -71,14 +75,7 @@ class ChatListViewModel(
     }
     
     fun retry() {
+        println("🔄 ChatListViewModel: Retrying room load...")
         loadRooms()
-    }
-    
-    private fun refreshRooms() {
-        viewModelScope.launch {
-            roomRepository.getRooms()
-                .onSuccess { println("✅ Rooms refreshed successfully") }
-                .onFailure { println("❌ Failed to refresh rooms: ${it.message}") }
-        }
     }
 }
