@@ -92,7 +92,7 @@ val appModule = module {
     
     // ViewModels
     viewModel { LoginViewModel(get(), get(), get()) }
-    viewModel { ChatListViewModel(get()) }
+    viewModel { ChatListViewModel(get(), get()) }
     viewModel { UserSearchViewModel(get(), get()) }
     viewModel { (roomId: String) -> 
         ChatRoomViewModel(
@@ -101,7 +101,8 @@ val appModule = module {
             observeMessagesUseCase = get(),
             getMessagesUseCase = get(),
             userRepository = get(),
-            joinRoomUseCase = get()
+            joinRoomUseCase = get(),
+            apiClient = get()
         )
     }
 }

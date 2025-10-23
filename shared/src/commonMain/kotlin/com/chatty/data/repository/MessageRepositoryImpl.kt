@@ -93,18 +93,21 @@ class MessageRepositoryImpl(
                 replyToId = message.replyTo?.value
             )
             
-            // Send via WebSocket
-            apiClient.sendMessage(
-                WebSocketMessage.SendMessage(
+            // ✅ FIXED: Send via WebSocket using CLIENT message type (not server type!)
+            apiClient.sendClientMessage(
+                ClientWebSocketMessage.SendMessage(
+                    messageId = message.id.value,
                     roomId = message.roomId.value,
-                    content = message.content.toDto(),
-                    replyToId = message.replyTo?.value,
-                    tempId = message.id.value
+                    content = message.content.toDto()
                 )
             ).fold(
-                onSuccess = { message },
+                onSuccess = { 
+                    println("✅ Message queued for sending: ${message.id.value}")
+                    message 
+                },
                 onFailure = { error ->
                     // Update status to FAILED
+                    println("❌ Failed to send message: ${error.message}")
                     database.chatDatabaseQueries.updateMessageStatus(
                         Message.MessageStatus.FAILED.name,
                         message.id.value

@@ -2,6 +2,8 @@ package com.chatty.android.ui.chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chatty.data.remote.ChatApiClient
+import com.chatty.data.remote.WebSocketConnectionState
 import com.chatty.domain.model.ChatRoom
 import com.chatty.domain.model.Message
 import com.chatty.domain.model.User
@@ -13,6 +15,7 @@ import com.chatty.domain.usecase.SendMessageUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 
@@ -30,7 +33,8 @@ class ChatRoomViewModel(
     private val observeMessagesUseCase: ObserveMessagesUseCase,
     private val getMessagesUseCase: GetMessagesUseCase,
     private val userRepository: UserRepository,
-    private val joinRoomUseCase: JoinRoomUseCase
+    private val joinRoomUseCase: JoinRoomUseCase,
+    private val apiClient: ChatApiClient
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(ChatRoomUiState())
@@ -47,7 +51,14 @@ class ChatRoomViewModel(
     
     private fun joinRoom() {
         viewModelScope.launch {
-            println("🚪 Joining room: $roomId")
+            println("🚪 Attempting to join room: $roomId")
+            
+            // Wait for WebSocket to be connected
+            apiClient.connectionState.first { state ->
+                state == WebSocketConnectionState.CONNECTED
+            }
+            
+            println("✅ WebSocket connected, now joining room: $roomId")
             joinRoomUseCase(chatRoomId)
         }
     }

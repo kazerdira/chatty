@@ -3,6 +3,7 @@ package com.chatty.data.remote
 import com.chatty.data.remote.dto.*
 import com.chatty.data.local.TokenManager
 import io.ktor.client.*
+import io.ktor.client.engine.cio.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
@@ -57,7 +58,7 @@ class ChatApiClient(
         }
     }
     
-    private val websocketClient = HttpClient {
+    private val websocketClient = HttpClient(CIO) {
         install(WebSockets) {
             pingInterval = 15_000
             contentConverter = KotlinxWebsocketSerializationConverter(Json)
@@ -189,8 +190,9 @@ class ChatApiClient(
     suspend fun sendClientMessage(message: ClientWebSocketMessage): Result<Unit> {
         return runCatching {
             val session = websocketSession ?: throw IllegalStateException("WebSocket not connected")
-            val text = Json.encodeToString(message)
+            val text = Json.encodeToString(ClientWebSocketMessage.serializer(), message)
             println("📤 WebSocket: Sending client message: ${message::class.simpleName}")
+            println("📤 WebSocket: Message JSON: $text")
             session.send(Frame.Text(text))
         }
     }

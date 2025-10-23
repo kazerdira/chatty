@@ -39,6 +39,7 @@ kotlin {
                 implementation(Dependencies.Ktor.serializationJson)
                 implementation(Dependencies.Ktor.clientLogging)
                 implementation(Dependencies.Ktor.clientAuth)
+                implementation(Dependencies.Ktor.clientCIO) // For WebSocket support
                 
                 // Coroutines
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:${Versions.coroutines}")

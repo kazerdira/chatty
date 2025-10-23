@@ -2,6 +2,7 @@ package com.chatty.android.ui.chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chatty.data.remote.ChatApiClient
 import com.chatty.domain.model.ChatRoom
 import com.chatty.domain.usecase.ObserveRoomsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,13 +17,19 @@ data class ChatListUiState(
 )
 
 class ChatListViewModel(
-    private val observeRoomsUseCase: ObserveRoomsUseCase
+    private val observeRoomsUseCase: ObserveRoomsUseCase,
+    private val apiClient: ChatApiClient
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(ChatListUiState())
     val uiState: StateFlow<ChatListUiState> = _uiState.asStateFlow()
     
     init {
+        // Connect WebSocket when entering chat list (in case user bypassed login with saved token)
+        viewModelScope.launch {
+            println("🔌 ChatListViewModel: Ensuring WebSocket is connected...")
+            apiClient.connectWebSocket()
+        }
         loadRooms()
     }
     
