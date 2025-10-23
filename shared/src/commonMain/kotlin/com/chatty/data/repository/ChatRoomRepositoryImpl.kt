@@ -24,6 +24,16 @@ class ChatRoomRepositoryImpl(
     private val _rooms = MutableStateFlow<List<ChatRoom>>(emptyList())
     
     init {
+        // Load existing rooms from server on startup
+        scope.launch {
+            println("🔄 Loading rooms from server...")
+            getRooms().onSuccess { rooms ->
+                println("✅ Loaded ${rooms.size} rooms from server")
+            }.onFailure { error ->
+                println("❌ Failed to load rooms: ${error.message}")
+            }
+        }
+        
         // Listen for WebSocket messages
         scope.launch {
             apiClient.incomingMessages.collect { message ->

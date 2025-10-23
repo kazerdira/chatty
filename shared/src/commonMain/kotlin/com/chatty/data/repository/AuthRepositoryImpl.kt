@@ -17,6 +17,7 @@ class AuthRepositoryImpl(
         return apiClient.login(AuthRequest(username, password)).mapCatching { response ->
             tokenManager.saveAccessToken(response.token)
             tokenManager.saveRefreshToken(response.refreshToken)
+            tokenManager.saveUserId(response.userId) // Save user ID from login response
             
             // Connect WebSocket after login
             apiClient.connectWebSocket()
@@ -39,6 +40,7 @@ class AuthRepositoryImpl(
             .mapCatching { response ->
                 tokenManager.saveAccessToken(response.token)
                 tokenManager.saveRefreshToken(response.refreshToken)
+                tokenManager.saveUserId(response.userId) // Save user ID from register response
                 
                 // Connect WebSocket after registration
                 apiClient.connectWebSocket()

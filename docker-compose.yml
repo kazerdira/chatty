@@ -20,6 +20,28 @@ services:
     networks:
       - chatty-network
 
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chatty-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/chatty
+      DATABASE_USER: chatty
+      DATABASE_PASSWORD: chatty123
+      JWT_SECRET: your-secret-key-change-in-production
+      JWT_ISSUER: chatty-app
+      JWT_AUDIENCE: chatty-users
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8080
+    ports:
+      - "8080:8080"
+    networks:
+      - chatty-network
+
 volumes:
   postgres_data:
     driver: local

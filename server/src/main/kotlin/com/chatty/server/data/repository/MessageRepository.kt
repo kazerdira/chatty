@@ -73,10 +73,9 @@ class MessageRepository {
                     (Messages.roomId eq UUID.fromString(roomId)) and
                     Messages.deletedAt.isNull()
                 }
-                .orderBy(Messages.timestamp to SortOrder.DESC)
+                .orderBy(Messages.timestamp to SortOrder.ASC)
                 .limit(limit, offset.toLong())
                 .map { toMessageDto(it) }
-                .reversed()
         }
     
     suspend fun getLastMessageForRoom(roomId: UUID): MessageDto? = dbQuery {

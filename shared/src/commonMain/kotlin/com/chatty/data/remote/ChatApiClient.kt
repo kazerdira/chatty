@@ -103,6 +103,22 @@ class ChatApiClient(
             reconnectAttempt = 0 // Reset on successful connection
             println("✅ WebSocket: Connected successfully")
             
+            // Send authentication message with user ID
+            val userId = tokenManager.getUserId()
+            println("🔍 WebSocket: Checking authentication - userId from token: $userId")
+            
+            if (userId != null) {
+                val authMessage = ClientWebSocketMessage.Authenticate(userId)
+                val authJson = Json.encodeToString(authMessage)
+                websocketSession?.send(Frame.Text(authJson))
+                println("🔐 WebSocket: Sent authentication for user: $userId")
+            } else {
+                println("❌ WebSocket: CRITICAL - No user ID found!")
+                println("❌ This means user logged in before Fix #6")
+                println("❌ User must logout and login again to save user ID")
+                _connectionState.value = WebSocketConnectionState.ERROR
+            }
+            
             // Start listening to messages
             websocketSession?.incoming?.consumeAsFlow()?.collect { frame ->
                 when (frame) {
@@ -167,6 +183,24 @@ class ChatApiClient(
             val text = Json.encodeToString(message)
             println("📤 WebSocket: Sending message: ${message::class.simpleName}")
             session.send(Frame.Text(text))
+        }
+    }
+    
+    suspend fun sendClientMessage(message: ClientWebSocketMessage): Result<Unit> {
+        return runCatching {
+            val session = websocketSession ?: throw IllegalStateException("WebSocket not connected")
+            val text = Json.encodeToString(message)
+            println("📤 WebSocket: Sending client message: ${message::class.simpleName}")
+            session.send(Frame.Text(text))
+        }
+    }
+    
+    suspend fun joinRoom(roomId: String) {
+        val message = ClientWebSocketMessage.JoinRoom(roomId)
+        sendClientMessage(message).onSuccess {
+            println("✅ Joined room: $roomId")
+        }.onFailure { error ->
+            println("❌ Failed to join room: ${error.message}")
         }
     }
     

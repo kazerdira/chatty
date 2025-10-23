@@ -28,7 +28,18 @@ class MessageRepositoryImpl(
         scope.launch {
             apiClient.incomingMessages.collect { wsMessage ->
                 when (wsMessage) {
+                    is WebSocketMessage.NewMessage -> {
+                        // Handle real-time messages from other users
+                        println("📨 Received new message: ${wsMessage.message.id}")
+                        handleMessageReceived(wsMessage.message)
+                    }
                     is WebSocketMessage.MessageReceived -> {
+                        handleMessageReceived(wsMessage.message)
+                    }
+                    is WebSocketMessage.MessageSent -> {
+                        // Update temp message with real message from server
+                        println("✅ Message sent successfully: ${wsMessage.message.id}")
+                        database.chatDatabaseQueries.deleteMessage(wsMessage.tempId)
                         handleMessageReceived(wsMessage.message)
                     }
                     is WebSocketMessage.MessageStatusUpdate -> {
@@ -154,7 +165,8 @@ class MessageRepositoryImpl(
                     onFailure = { emptyList() }
                 )
             } else {
-                localMessages.map { dbMessage ->
+                // Return messages in chronological order (oldest first)
+                localMessages.reversed().map { dbMessage ->
                     Message(
                         id = Message.MessageId(dbMessage.id),
                         roomId = ChatRoom.RoomId(dbMessage.roomId),
@@ -176,7 +188,8 @@ class MessageRepositoryImpl(
             .asFlow()
             .mapToList(Dispatchers.Default)
             .map { dbMessages ->
-                dbMessages.map { dbMessage ->
+                // Reverse to show oldest first (chronological order for chat)
+                dbMessages.reversed().map { dbMessage ->
                     Message(
                         id = Message.MessageId(dbMessage.id),
                         roomId = ChatRoom.RoomId(dbMessage.roomId),

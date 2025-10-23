@@ -46,12 +46,43 @@ class RoomRepository(
             }
         }
         
-        val createdRoom = getRoomById(roomId.value.toString())
-        if (createdRoom == null) {
+        // Get the created room directly (within same transaction)
+        println("DEBUG: Getting room by ID: ${roomId.value}")
+        val room = ChatRooms.select { ChatRooms.id eq roomId }
+            .firstOrNull()
+        
+        if (room == null) {
             println("ERROR: Failed to retrieve newly created room with ID: ${roomId.value}")
             throw RuntimeException("Failed to create room")
         }
-        createdRoom
+        
+        println("DEBUG: Room found, getting participants...")
+        val participants = RoomParticipants
+            .innerJoin(Users)
+            .select { RoomParticipants.roomId eq roomId }
+            .map { it[Users.id].value.toString() }
+        
+        println("DEBUG: Found ${participants.size} participants")
+        
+        println("DEBUG: Getting last message...")
+        val lastMessage = (Messages innerJoin Users)
+            .select { Messages.roomId eq roomId }
+            .orderBy(Messages.timestamp to SortOrder.DESC)
+            .limit(1)
+            .map { toSimpleMessageDto(it) }
+            .firstOrNull()
+        
+        println("DEBUG: Creating ChatRoomDto...")
+        ChatRoomDto(
+            id = roomId.value.toString(),
+            name = room[ChatRooms.name],
+            type = room[ChatRooms.type],
+            participants = participants,
+            lastMessage = lastMessage,
+            unreadCount = 0,
+            createdAt = room[ChatRooms.createdAt].toString(),
+            updatedAt = room[ChatRooms.updatedAt].toString()
+        )
     }
     
     suspend fun getRoomById(roomId: String): ChatRoomDto? = dbQuery {

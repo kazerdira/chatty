@@ -73,6 +73,23 @@ sealed class WebSocketMessage {
     ) : WebSocketMessage()
     
     @Serializable
+    data class NewMessage(
+        val message: MessageDto
+    ) : WebSocketMessage()
+    
+    @Serializable
+    data class MessageSent(
+        val tempId: String,
+        val message: MessageDto
+    ) : WebSocketMessage()
+    
+    @Serializable
+    data class AuthenticationSuccess(
+        val userId: String,
+        val timestamp: Instant
+    ) : WebSocketMessage()
+    
+    @Serializable
     data class Error(
         val code: String,
         val message: String

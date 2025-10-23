@@ -7,6 +7,7 @@ import com.chatty.domain.model.Message
 import com.chatty.domain.model.User
 import com.chatty.domain.repository.UserRepository
 import com.chatty.domain.usecase.GetMessagesUseCase
+import com.chatty.domain.usecase.JoinRoomUseCase
 import com.chatty.domain.usecase.ObserveMessagesUseCase
 import com.chatty.domain.usecase.SendMessageUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,7 +29,8 @@ class ChatRoomViewModel(
     private val sendMessageUseCase: SendMessageUseCase,
     private val observeMessagesUseCase: ObserveMessagesUseCase,
     private val getMessagesUseCase: GetMessagesUseCase,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val joinRoomUseCase: JoinRoomUseCase
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(ChatRoomUiState())
@@ -38,8 +40,16 @@ class ChatRoomViewModel(
     
     init {
         loadCurrentUser()
+        joinRoom()
         observeMessages()
         loadInitialMessages()
+    }
+    
+    private fun joinRoom() {
+        viewModelScope.launch {
+            println("🚪 Joining room: $roomId")
+            joinRoomUseCase(chatRoomId)
+        }
     }
     
     private fun loadCurrentUser() {

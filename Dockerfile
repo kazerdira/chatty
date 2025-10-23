@@ -1,4 +1,4 @@
-FROM gradle:8.5-jdk19 AS builder
+FROM gradle:8.5-jdk17 AS builder
 
 WORKDIR /app
 
@@ -14,7 +14,7 @@ COPY server server
 # Build the application
 RUN ./gradlew :server:build --no-daemon
 
-FROM eclipse-temurin:19-jre-alpine
+FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
 

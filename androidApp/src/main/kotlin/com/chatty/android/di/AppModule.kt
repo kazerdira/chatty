@@ -88,6 +88,7 @@ val appModule = module {
     factory { SendMessageUseCase(get(), get()) }
     factory { ObserveRoomsUseCase(get()) }
     factory { CreateRoomUseCase(get()) }
+    factory { JoinRoomUseCase(get()) }
     
     // ViewModels
     viewModel { LoginViewModel(get(), get(), get()) }
@@ -99,7 +100,8 @@ val appModule = module {
             sendMessageUseCase = get(),
             observeMessagesUseCase = get(),
             getMessagesUseCase = get(),
-            userRepository = get()
+            userRepository = get(),
+            joinRoomUseCase = get()
         )
     }
 }
