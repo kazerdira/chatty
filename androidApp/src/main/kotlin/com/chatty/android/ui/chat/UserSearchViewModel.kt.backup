@@ -11,7 +11,10 @@ import com.chatty.domain.usecase.SearchUsersUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.delay
 
 data class UserSearchUiState(
     val users: List<User> = emptyList(),
@@ -66,20 +69,18 @@ class UserSearchViewModel(
         _uiState.value = _uiState.value.copy(selectedUsers = newSelection)
     }
     
-    /**
-     * ✅ PROFESSIONAL SOLUTION: Room creation via HTTP API
-     * 
-     * Key improvements:
-     * 1. Room creation uses HTTP API - doesn't require WebSocket
-     * 2. WebSocket connection is ensured in background for real-time features
-     * 3. User gets immediate feedback - no waiting for WebSocket
-     * 4. Scalable and reliable - works even if WebSocket is temporarily down
-     */
     fun createRoom(roomName: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isCreating = true, error = null)
             
             try {
+                println("🔌 UserSearchViewModel: Ensuring WebSocket is connected...")
+                
+                // Ensure WebSocket is connected
+                if (!ensureWebSocketConnected()) {
+                    throw Exception("Could not establish WebSocket connection. Please check your internet and try again.")
+                }
+                
                 val selectedUsers = _uiState.value.selectedUsers
                 if (selectedUsers.isEmpty()) {
                     throw Exception("Please select at least one user")
@@ -93,7 +94,6 @@ class UserSearchViewModel(
                 
                 println("📝 UserSearchViewModel: Creating ${roomType.name} room: $roomName")
                 
-                // ✅ Create room via HTTP API (reliable, doesn't need WebSocket)
                 createRoomUseCase(
                     CreateRoomUseCase.CreateRoomParams(
                         name = roomName,
@@ -101,13 +101,11 @@ class UserSearchViewModel(
                         participantIds = selectedUsers.map { it.id }
                     )
                 ).onSuccess { room ->
-                    println("✅ UserSearchViewModel: Room created successfully: ${room.id.value}")
+                    println("✅ UserSearchViewModel: Room created: ${room.id.value}")
                     
-                    // Ensure WebSocket connection in background for real-time updates
-                    // This is non-blocking and doesn't affect room creation
-                    ensureWebSocketConnection()
+                    // Wait a bit to ensure server processes the room
+                    delay(500)
                     
-                    // Update UI immediately - room is created!
                     _uiState.value = _uiState.value.copy(
                         isCreating = false,
                         createdRoomId = room.id.value,
@@ -130,37 +128,50 @@ class UserSearchViewModel(
         }
     }
     
-    /**
-     * Ensures WebSocket is connected in the background (non-blocking)
-     * This enables real-time features like instant message delivery
-     * but doesn't block room creation if connection is slow/fails
-     */
-    private fun ensureWebSocketConnection() {
-        viewModelScope.launch {
-            val currentState = apiClient.connectionState.value
-            
-            if (currentState == WebSocketConnectionState.CONNECTED) {
-                println("✅ WebSocket already connected - real-time updates enabled")
-                return@launch
+    private suspend fun ensureWebSocketConnected(): Boolean {
+        val currentState = apiClient.connectionState.value
+        
+        when (currentState) {
+            WebSocketConnectionState.CONNECTED -> {
+                println("✅ WebSocket already connected")
+                return true
             }
-            
-            println("🔌 Background: Initiating WebSocket connection for real-time updates...")
-            
-            // Non-blocking connection attempt
-            when (currentState) {
-                WebSocketConnectionState.DISCONNECTED,
-                WebSocketConnectionState.ERROR -> {
-                    apiClient.retryConnection()
-                }
-                else -> {
-                    // Already connecting, let it finish in background
-                    println("🔌 WebSocket connection already in progress")
+            WebSocketConnectionState.CONNECTING, WebSocketConnectionState.RECONNECTING -> {
+                println("⏳ WebSocket connecting, waiting...")
+                // Wait for connection
+                val connected = withTimeoutOrNull(10_000) {
+                    apiClient.connectionState.first { it == WebSocketConnectionState.CONNECTED }
+                    true
+                } ?: false
+                
+                if (connected) {
+                    println("✅ WebSocket connected successfully")
+                    return true
+                } else {
+                    println("❌ WebSocket connection timeout")
+                    return false
                 }
             }
-            
-            // Don't wait - connection happens in background
-            // User can start using the room immediately
-            println("✅ Room ready to use. WebSocket will connect in background.")
+            else -> {
+                println("🔌 WebSocket not connected, attempting connection...")
+                apiClient.retryConnection()
+                
+                // Wait for connection with timeout
+                val connected = withTimeoutOrNull(10_000) {
+                    apiClient.connectionState.first { it == WebSocketConnectionState.CONNECTED }
+                    true
+                } ?: false
+                
+                if (connected) {
+                    println("✅ WebSocket connected successfully")
+                    // Give it a moment to stabilize
+                    delay(500)
+                    return true
+                } else {
+                    println("❌ WebSocket connection failed")
+                    return false
+                }
+            }
         }
     }
     

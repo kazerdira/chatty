@@ -1,0 +1,179 @@
+package com.chatty.android.ui.chat
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.chatty.data.remote.ChatApiClient
+import com.chatty.data.remote.WebSocketConnectionState
+import com.chatty.domain.model.ChatRoom
+import com.chatty.domain.repository.ChatRoomRepository
+import com.chatty.domain.usecase.ObserveRoomsUseCase
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+data class ChatListUiState(
+    val rooms: List<ChatRoom> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null
+)
+
+/**
+ * ✅ IMPROVED: Professional ChatListViewModel with smart WebSocket management
+ * 
+ * Key improvements:
+ * 1. WebSocket connection is lazy and managed intelligently
+ * 2. Rooms are loaded via HTTP API first (reliable)
+ * 3. Real-time updates via WebSocket (bonus feature)
+ * 4. Fallback refresh only when WebSocket is actually disconnected
+ * 5. No aggressive 30-second polling that wastes resources
+ */
+class ChatListViewModel(
+    private val observeRoomsUseCase: ObserveRoomsUseCase,
+    private val apiClient: ChatApiClient,
+    private val roomRepository: ChatRoomRepository
+) : ViewModel() {
+    
+    private val _uiState = MutableStateFlow(ChatListUiState())
+    val uiState: StateFlow<ChatListUiState> = _uiState.asStateFlow()
+    
+    init {
+        // Ensure WebSocket connection for real-time updates (non-blocking)
+        ensureWebSocketConnection()
+        
+        // Load rooms from server
+        loadRooms()
+        
+        // Smart fallback: Only refresh if WebSocket is actually dead
+        startSmartFallbackRefresh()
+    }
+    
+    /**
+     * Loads rooms and observes real-time updates
+     */
+    private fun loadRooms() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            
+            try {
+                // Observe rooms from repository (includes HTTP fetch + WebSocket updates)
+                observeRoomsUseCase()
+                    .collect { rooms ->
+                        _uiState.value = _uiState.value.copy(
+                            rooms = rooms,
+                            isLoading = false,
+                            error = null
+                        )
+                    }
+            } catch (error: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = error.message ?: "Failed to load chats"
+                )
+            }
+        }
+    }
+    
+    /**
+     * Ensures WebSocket is connected in background for real-time features
+     * Non-blocking - doesn't delay room loading
+     */
+    private fun ensureWebSocketConnection() {
+        viewModelScope.launch {
+            val currentState = apiClient.connectionState.value
+            
+            when (currentState) {
+                WebSocketConnectionState.CONNECTED -> {
+                    println("✅ ChatList: WebSocket already connected")
+                }
+                WebSocketConnectionState.DISCONNECTED,
+                WebSocketConnectionState.ERROR -> {
+                    println("🔌 ChatList: Initiating WebSocket connection...")
+                    apiClient.retryConnection()
+                }
+                else -> {
+                    println("🔌 ChatList: WebSocket connection in progress")
+                }
+            }
+        }
+    }
+    
+    /**
+     * ✅ SMART FALLBACK: Only refresh when WebSocket is genuinely broken
+     * 
+     * Unlike the old aggressive 30-second polling, this:
+     * 1. Only refreshes if WebSocket has been disconnected for 60+ seconds
+     * 2. Attempts to reconnect WebSocket first
+     * 3. Falls back to HTTP refresh only if reconnection fails
+     * 4. Much more efficient and scalable
+     */
+    private fun startSmartFallbackRefresh() {
+        viewModelScope.launch {
+            var disconnectedTime = 0L
+            
+            while (true) {
+                delay(10_000) // Check every 10 seconds
+                
+                val state = apiClient.connectionState.value
+                
+                when (state) {
+                    WebSocketConnectionState.CONNECTED -> {
+                        // WebSocket working - reset timer
+                        disconnectedTime = 0L
+                        println("✅ ChatList: WebSocket healthy, real-time updates active")
+                    }
+                    
+                    WebSocketConnectionState.DISCONNECTED,
+                    WebSocketConnectionState.ERROR -> {
+                        disconnectedTime += 10_000
+                        
+                        // Only take action if disconnected for more than 60 seconds
+                        if (disconnectedTime >= 60_000) {
+                            println("⚠️ ChatList: WebSocket down for ${disconnectedTime/1000}s, attempting recovery...")
+                            
+                            // Try to reconnect WebSocket first
+                            apiClient.retryConnection()
+                            delay(5_000) // Give it 5 seconds
+                            
+                            // If still not connected, do HTTP refresh as last resort
+                            if (apiClient.connectionState.value != WebSocketConnectionState.CONNECTED) {
+                                println("🔄 ChatList: WebSocket recovery failed, using HTTP fallback")
+                                refreshRooms()
+                            }
+                            
+                            disconnectedTime = 0L // Reset counter
+                        }
+                    }
+                    
+                    else -> {
+                        // Connecting/Reconnecting - give it time
+                        println("🔌 ChatList: WebSocket ${state.name}, waiting...")
+                        disconnectedTime = 0L
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Manual room refresh via HTTP (fallback mechanism)
+     */
+    private fun refreshRooms() {
+        viewModelScope.launch {
+            roomRepository.getRooms()
+                .onSuccess { println("✅ Rooms refreshed via HTTP") }
+                .onFailure { println("❌ Failed to refresh rooms: ${it.message}") }
+        }
+    }
+    
+    fun retry() {
+        // User requested retry - ensure WebSocket is connected and reload
+        viewModelScope.launch {
+            println("🔄 ChatList: User requested retry")
+            ensureWebSocketConnection()
+            delay(1000) // Give WebSocket a moment
+            loadRooms()
+        }
+    }
+}
