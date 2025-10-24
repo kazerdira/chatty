@@ -78,8 +78,6 @@ class ChatApiClient(
     private var shouldReconnect = true // Flag to control reconnection
     
     suspend fun connectWebSocket() {
-        println("🔌 WebSocket: connectWebSocket() called - shouldReconnect=$shouldReconnect, isConnecting=$isConnecting, state=${_connectionState.value}")
-        
         if (!shouldReconnect) {
             println("🔌 WebSocket: Reconnection disabled (logged out)")
             return
@@ -95,15 +93,16 @@ class ChatApiClient(
             return
         }
         
+        isConnecting = true
+        _connectionState.value = if (reconnectAttempt > 0) {
+            WebSocketConnectionState.RECONNECTING
+        } else {
+            WebSocketConnectionState.CONNECTING
+        }
+        
+        println("🔌 WebSocket: Connecting... (attempt ${reconnectAttempt + 1})")
+        
         try {
-            isConnecting = true
-            _connectionState.value = if (reconnectAttempt > 0) {
-                WebSocketConnectionState.RECONNECTING
-            } else {
-                WebSocketConnectionState.CONNECTING
-            }
-            
-            println("🔌 WebSocket: Connecting... (attempt ${reconnectAttempt + 1})")
             // Validate prerequisites
             val token = tokenManager.getAccessToken()
             val userId = tokenManager.getUserId()
@@ -153,7 +152,8 @@ class ChatApiClient(
                         }
                     }
                     is Frame.Close -> {
-                        println("🔌 WebSocket: Connection closed by server")
+                        val reason = closeReason.await()
+                        println("🔌 WebSocket: Closed by server: $reason")
                         websocketSession = null
                         _connectionState.value = WebSocketConnectionState.DISCONNECTED
                     }
@@ -245,21 +245,11 @@ class ChatApiClient(
     
     suspend fun retryConnection() {
         println("🔄 WebSocket: Manual retry requested")
-        println("🔄 WebSocket: websocketSession=$websocketSession, shouldReconnect=$shouldReconnect")
         shouldReconnect = true // Re-enable reconnection
         reconnectAttempt = 0
         if (websocketSession == null) {
-            println("🔄 WebSocket: Calling connectWebSocket()...")
             connectWebSocket()
-        } else {
-            println("🔄 WebSocket: Session exists, not reconnecting")
         }
-    }
-    
-    fun resetReconnectionFlag() {
-        shouldReconnect = true
-        reconnectAttempt = 0
-        println("🔄 WebSocket: Reconnection flag reset for new session")
     }
     
     // HTTP API methods

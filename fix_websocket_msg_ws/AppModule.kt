@@ -37,7 +37,7 @@ val appModule = module {
     // Token Manager
     single<TokenManager> { TokenManagerImpl(androidContext()) }
     
-    // API Client
+    // API Client - single instance shared across the app
     single { 
         ChatApiClient(
             baseUrl = "http://10.0.2.2:8080", // Android emulator localhost
@@ -81,7 +81,7 @@ val appModule = module {
     // Use Cases
     factory { LoginUseCase(get()) }
     factory { RegisterUseCase(get()) }
-    factory { LogoutUseCase(get()) }
+    factory { LogoutUseCase(get(), get()) } // ✅ Now includes ChatApiClient
     factory { SearchUsersUseCase(get()) }
     factory { ObserveMessagesUseCase(get()) }
     factory { GetMessagesUseCase(get()) }
@@ -92,17 +92,8 @@ val appModule = module {
     
     // ViewModels
     viewModel { LoginViewModel(get(), get(), get()) }
-    viewModel { ChatListViewModel(get(), get()) }
-    
-    // FIXED: Add ChatApiClient dependency to UserSearchViewModel
-    viewModel { 
-        UserSearchViewModel(
-            searchUsersUseCase = get(),
-            createRoomUseCase = get(),
-            apiClient = get() // ADDED THIS
-        ) 
-    }
-    
+    viewModel { ChatListViewModel(get(), get(), get()) }
+    viewModel { UserSearchViewModel(get(), get(), get()) }
     viewModel { (roomId: String) -> 
         ChatRoomViewModel(
             roomId = roomId,

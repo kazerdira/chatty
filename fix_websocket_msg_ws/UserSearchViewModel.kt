@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.delay
 
 data class UserSearchUiState(
     val users: List<User> = emptyList(),
@@ -73,25 +74,12 @@ class UserSearchViewModel(
             _uiState.value = _uiState.value.copy(isCreating = true, error = null)
             
             try {
-                // First, ensure WebSocket is connected
-                println("🔌 UserSearchViewModel: Checking WebSocket connection...")
+                println("🔌 UserSearchViewModel: Ensuring WebSocket is connected...")
                 
-                val connectionState = apiClient.connectionState.value
-                if (connectionState != WebSocketConnectionState.CONNECTED) {
-                    println("⚠️ UserSearchViewModel: WebSocket not connected (state: $connectionState), attempting to connect...")
-                    apiClient.retryConnection()
-                    
-                    // Wait for connection (timeout after 5 seconds)
-                    val connected = withTimeoutOrNull(5000) {
-                        apiClient.connectionState.first { it == WebSocketConnectionState.CONNECTED }
-                    } != null
-                    
-                    if (!connected) {
-                        throw Exception("Failed to establish WebSocket connection. Please check your internet and try again.")
-                    }
+                // Ensure WebSocket is connected
+                if (!ensureWebSocketConnected()) {
+                    throw Exception("Could not establish WebSocket connection. Please check your internet and try again.")
                 }
-                
-                println("✅ UserSearchViewModel: WebSocket connected, creating room...")
                 
                 val selectedUsers = _uiState.value.selectedUsers
                 if (selectedUsers.isEmpty()) {
@@ -104,7 +92,7 @@ class UserSearchViewModel(
                     ChatRoom.RoomType.GROUP
                 }
                 
-                println("📝 UserSearchViewModel: Creating ${roomType.name} room with ${selectedUsers.size} participants")
+                println("📝 UserSearchViewModel: Creating ${roomType.name} room: $roomName")
                 
                 createRoomUseCase(
                     CreateRoomUseCase.CreateRoomParams(
@@ -113,7 +101,11 @@ class UserSearchViewModel(
                         participantIds = selectedUsers.map { it.id }
                     )
                 ).onSuccess { room ->
-                    println("✅ UserSearchViewModel: Room created successfully: ${room.id.value}")
+                    println("✅ UserSearchViewModel: Room created: ${room.id.value}")
+                    
+                    // Wait a bit to ensure server processes the room
+                    delay(500)
+                    
                     _uiState.value = _uiState.value.copy(
                         isCreating = false,
                         createdRoomId = room.id.value,
@@ -123,18 +115,62 @@ class UserSearchViewModel(
                 }.onFailure { error ->
                     println("❌ UserSearchViewModel: Room creation failed: ${error.message}")
                     error.printStackTrace()
-                    _uiState.value = _uiState.value.copy(
-                        isCreating = false,
-                        error = error.message ?: "Failed to create chat. Please try again."
-                    )
+                    throw error
                 }
             } catch (e: Exception) {
-                println("❌ UserSearchViewModel: Unexpected error: ${e.message}")
+                println("❌ UserSearchViewModel: Error: ${e.message}")
                 e.printStackTrace()
                 _uiState.value = _uiState.value.copy(
                     isCreating = false,
-                    error = e.message ?: "An unexpected error occurred"
+                    error = e.message ?: "Failed to create chat. Please try again."
                 )
+            }
+        }
+    }
+    
+    private suspend fun ensureWebSocketConnected(): Boolean {
+        val currentState = apiClient.connectionState.value
+        
+        when (currentState) {
+            WebSocketConnectionState.CONNECTED -> {
+                println("✅ WebSocket already connected")
+                return true
+            }
+            WebSocketConnectionState.CONNECTING, WebSocketConnectionState.RECONNECTING -> {
+                println("⏳ WebSocket connecting, waiting...")
+                // Wait for connection
+                val connected = withTimeoutOrNull(10_000) {
+                    apiClient.connectionState.first { it == WebSocketConnectionState.CONNECTED }
+                    true
+                } ?: false
+                
+                if (connected) {
+                    println("✅ WebSocket connected successfully")
+                    return true
+                } else {
+                    println("❌ WebSocket connection timeout")
+                    return false
+                }
+            }
+            else -> {
+                println("🔌 WebSocket not connected, attempting connection...")
+                apiClient.retryConnection()
+                
+                // Wait for connection with timeout
+                val connected = withTimeoutOrNull(10_000) {
+                    apiClient.connectionState.first { it == WebSocketConnectionState.CONNECTED }
+                    true
+                } ?: false
+                
+                if (connected) {
+                    println("✅ WebSocket connected successfully")
+                    // Give it a moment to stabilize
+                    delay(500)
+                    return true
+                } else {
+                    println("❌ WebSocket connection failed")
+                    return false
+                }
             }
         }
     }

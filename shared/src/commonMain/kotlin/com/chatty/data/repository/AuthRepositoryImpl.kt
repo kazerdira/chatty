@@ -25,6 +25,9 @@ class AuthRepositoryImpl(
             
             println("✅ AuthRepository: Tokens saved for user: ${response.userId}")
             
+            // Reset WebSocket reconnection flag for new session
+            apiClient.resetReconnectionFlag()
+            
             // Give tokens time to persist (especially important for encrypted storage)
             delay(500)
             
@@ -56,6 +59,9 @@ class AuthRepositoryImpl(
                 tokenManager.saveUserId(response.userId)
                 
                 println("✅ AuthRepository: Tokens saved after registration for user: ${response.userId}")
+                
+                // Reset WebSocket reconnection flag for new session
+                apiClient.resetReconnectionFlag()
                 
                 // Give tokens time to persist (especially important for encrypted storage)
                 delay(500)

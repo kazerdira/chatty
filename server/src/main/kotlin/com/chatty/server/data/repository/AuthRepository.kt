@@ -110,7 +110,13 @@ class AuthRepository {
         val now = Instant.now()
         val tokenExpiryMillis = now.toEpochMilli() + 3600000 // 1 hour
         
+        // Must match JwtConfig in Application.kt
+        val audience = "chatty-users"
+        val issuer = "chatty-server"
+        
         val token = JWT.create()
+            .withAudience(audience)
+            .withIssuer(issuer)
             .withSubject(userId)
             .withClaim("userId", userId)
             .withClaim("username", username)

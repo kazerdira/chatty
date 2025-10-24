@@ -18,11 +18,11 @@ actual class TokenManagerImpl(private val context: Context) : TokenManager {
     )
     
     override suspend fun saveAccessToken(token: String) {
-        sharedPreferences.edit().putString(KEY_ACCESS_TOKEN, token).apply()
+        sharedPreferences.edit().putString(KEY_ACCESS_TOKEN, token).commit()
     }
     
     override suspend fun saveRefreshToken(token: String) {
-        sharedPreferences.edit().putString(KEY_REFRESH_TOKEN, token).apply()
+        sharedPreferences.edit().putString(KEY_REFRESH_TOKEN, token).commit()
     }
     
     override suspend fun getAccessToken(): String? {
@@ -40,11 +40,11 @@ actual class TokenManagerImpl(private val context: Context) : TokenManager {
             .remove(KEY_USER_ID)
             .remove(KEY_USERNAME)
             .remove(KEY_DISPLAY_NAME)
-            .apply()
+            .commit()
     }
     
     override suspend fun saveUserId(userId: String) {
-        sharedPreferences.edit().putString(KEY_USER_ID, userId).apply()
+        sharedPreferences.edit().putString(KEY_USER_ID, userId).commit()
     }
     
     override suspend fun getUserId(): String? {
@@ -56,7 +56,7 @@ actual class TokenManagerImpl(private val context: Context) : TokenManager {
             .putString(KEY_USER_ID, userId)
             .putString(KEY_USERNAME, username)
             .putString(KEY_DISPLAY_NAME, displayName)
-            .apply()
+            .commit()
     }
     
     override suspend fun getUsername(): String? {
