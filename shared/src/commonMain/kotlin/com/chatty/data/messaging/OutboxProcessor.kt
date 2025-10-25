@@ -184,16 +184,19 @@ class OutboxProcessor(
     
     private suspend fun sendMessage(message: OutboxMessage): Result<String> {
         return try {
-            // Send via WebSocket
-            val clientMessage = ClientWebSocketMessage.SendMessage(
-                messageId = message.id,
-                roomId = message.roomId.value,
-                content = message.content.toDto()
-            )
+            println("📤 OutboxProcessor: Sending message ${message.id} via HTTP API")
             
-            apiClient.sendClientMessage(clientMessage)
-                .map { message.id } // Return client ID for now
+            // ✅ fix6_v2: Use HTTP API (reliable, like room creation!)
+            apiClient.sendMessageViaHttp(
+                roomId = message.roomId.value,
+                content = message.content.toDto(),
+                replyToId = null
+            ).map { serverMessage ->
+                println("✅ OutboxProcessor: Message sent via HTTP: ${serverMessage.id}")
+                serverMessage.id // Return server-assigned ID
+            }
         } catch (e: Exception) {
+            println("❌ OutboxProcessor: HTTP send failed: ${e.message}")
             Result.failure(e)
         }
     }

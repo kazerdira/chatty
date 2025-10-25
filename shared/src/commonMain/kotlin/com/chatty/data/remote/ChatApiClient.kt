@@ -344,6 +344,44 @@ class ChatApiClient(
         }
     }
     
+    /**
+     * ✅ fix6_v2: Send message via HTTP API (reliable, like room creation!)
+     * 
+     * This is the primary method for sending messages.
+     * HTTP API provides guaranteed delivery, WebSocket is bonus for real-time.
+     * 
+     * @param roomId The room ID to send the message to
+     * @param content The message content (text, image, etc.)
+     * @param replyToId Optional message ID to reply to
+     * @return Result with the sent message DTO
+     */
+    suspend fun sendMessageViaHttp(
+        roomId: String,
+        content: MessageContentDto,
+        replyToId: String? = null
+    ): Result<MessageDto> {
+        return safeApiCall {
+            println("📤 HTTP: Sending message to room $roomId")
+            
+            val serverContent = content.toServerDto()
+            println("📤 HTTP: Content - type=${serverContent.type}, text=${serverContent.text}, url=${serverContent.url}")
+            
+            val response = httpClient.post("$baseUrl/messages") {
+                bearerAuth(tokenManager.getAccessToken() ?: "")
+                contentType(ContentType.Application.Json)
+                setBody(SendMessageRequest(
+                    roomId = roomId,
+                    content = serverContent,
+                    replyToId = replyToId
+                ))
+            }
+            
+            val message: MessageDto = response.body()
+            println("✅ HTTP: Message sent successfully: ${message.id}")
+            message
+        }
+    }
+    
     suspend fun getMessages(
         roomId: String,
         before: String? = null,

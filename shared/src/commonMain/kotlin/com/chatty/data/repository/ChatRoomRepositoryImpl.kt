@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Instant
 
 /**
  * ✅ ENHANCED: ChatRoomRepository with WebSocket diagnostics and auto-refresh fallback
@@ -188,7 +189,7 @@ class ChatRoomRepositoryImpl(
             val room = currentRooms[roomIndex]
             val updatedRoom = room.copy(
                 lastMessage = messageDto.toEntity(),
-                updatedAt = messageDto.timestamp
+                updatedAt = Instant.parse(messageDto.timestamp) // Parse string to Instant
             )
             
             val updatedRooms = currentRooms.toMutableList().apply {

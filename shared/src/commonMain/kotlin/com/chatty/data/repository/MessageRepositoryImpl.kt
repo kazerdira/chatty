@@ -73,17 +73,17 @@ class MessageRepositoryImpl(
             senderId = messageDto.senderId,
             senderName = messageDto.senderName,
             senderAvatar = messageDto.senderAvatar,
-            contentType = getContentType(messageDto.content),
-            contentData = serializeContent(messageDto.content),
-            timestamp = messageDto.timestamp.toEpochMilliseconds(),
-            status = messageDto.status.name,
-            editedAt = messageDto.editedAt?.toEpochMilliseconds(),
+            contentType = messageDto.content.type, // Use server's flat structure
+            contentData = messageDto.content.text ?: messageDto.content.url ?: "", // Simple serialization
+            timestamp = Instant.parse(messageDto.timestamp).toEpochMilliseconds(),
+            status = messageDto.status, // Already a string
+            editedAt = messageDto.editedAt?.let { Instant.parse(it).toEpochMilliseconds() },
             replyToId = messageDto.replyTo
         )
         
         // Update room's updated timestamp
         database.chatDatabaseQueries.updateRoomUpdatedAt(
-            messageDto.timestamp.toEpochMilliseconds(),
+            Instant.parse(messageDto.timestamp).toEpochMilliseconds(),
             messageDto.roomId
         )
     }
