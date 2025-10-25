@@ -19,55 +19,97 @@ class MessageRepository {
         fileName: String? = null,
         fileSize: Long? = null,
         replyToId: String? = null
-    ): MessageDto? = dbQuery {
+    ): MessageDto? {
         println("🔍 [MessageRepository] Inserting message - roomId: $roomId, senderId: $senderId, contentType: $contentType")
         
-        val messageId = Messages.insert {
-            it[Messages.roomId] = UUID.fromString(roomId)
-            it[Messages.senderId] = UUID.fromString(senderId)
-            it[Messages.contentType] = contentType
-            it[Messages.contentText] = contentText
-            it[Messages.contentUrl] = contentUrl
-            it[Messages.fileName] = fileName
-            it[Messages.fileSize] = fileSize
-            it[Messages.replyToId] = replyToId?.let { id -> UUID.fromString(id) }
-            it[timestamp] = Instant.now()
-            it[status] = "SENT"
-        } get Messages.id
-        
-        println("✅ [MessageRepository] Message inserted with ID: ${messageId.value}")
-        
-        // Mark as sent for sender
-        MessageStatus.insert {
-            it[this.messageId] = messageId
-            it[userId] = UUID.fromString(senderId)
-            it[status] = "sent"
-            it[MessageStatus.timestamp] = Instant.now()
-        }
-        
-        // Update room updated_at
-        ChatRooms.update({ ChatRooms.id eq UUID.fromString(roomId) }) {
-            it[updatedAt] = Instant.now()
-        }
-        
-        // Increment unread count for other participants
-        RoomParticipants.update({
-            (RoomParticipants.roomId eq UUID.fromString(roomId)) and
-            (RoomParticipants.userId neq UUID.fromString(senderId))
-        }) {
-            with(SqlExpressionBuilder) {
-                it[unreadCount] = unreadCount + 1
+        try {
+            // First transaction: Insert message and related data
+            val messageId = dbQuery {
+                val msgId = Messages.insert {
+                    it[Messages.roomId] = UUID.fromString(roomId)
+                    it[Messages.senderId] = UUID.fromString(senderId)
+                    it[Messages.contentType] = contentType
+                    it[Messages.contentText] = contentText
+                    it[Messages.contentUrl] = contentUrl
+                    it[Messages.fileName] = fileName
+                    it[Messages.fileSize] = fileSize
+                    it[Messages.replyToId] = replyToId?.let { id -> UUID.fromString(id) }
+                    it[timestamp] = Instant.now()
+                    it[status] = "SENT"
+                } get Messages.id
+                
+                println("✅ [MessageRepository] Message inserted with ID: ${msgId.value}")
+                
+                // Mark as sent for sender
+                MessageStatus.insert {
+                    it[this.messageId] = msgId
+                    it[userId] = UUID.fromString(senderId)
+                    it[status] = "sent"
+                    it[MessageStatus.timestamp] = Instant.now()
+                }
+                
+                // Update room updated_at
+                ChatRooms.update({ ChatRooms.id eq UUID.fromString(roomId) }) {
+                    it[updatedAt] = Instant.now()
+                }
+                
+                // Increment unread count for other participants
+                RoomParticipants.update({
+                    (RoomParticipants.roomId eq UUID.fromString(roomId)) and
+                    (RoomParticipants.userId neq UUID.fromString(senderId))
+                }) {
+                    with(SqlExpressionBuilder) {
+                        it[unreadCount] = unreadCount + 1
+                    }
+                }
+                
+                msgId.value.toString()
             }
+            
+            // Second transaction: Retrieve the message (after commit)
+            return getMessageById(messageId)
+        } catch (e: Exception) {
+            println("❌ [MessageRepository] ERROR inserting message: ${e.message}")
+            e.printStackTrace()
+            throw e
         }
-        
-        getMessageById(messageId.value.toString())
     }
     
     suspend fun getMessageById(messageId: String): MessageDto? = dbQuery {
-        Messages.join(Users, JoinType.INNER, Messages.senderId, Users.id)
+        println("🔍 [MessageRepository] Getting message by ID: $messageId")
+        
+        val results = Messages.join(Users, JoinType.INNER, Messages.senderId, Users.id)
             .select { Messages.id eq UUID.fromString(messageId) }
-            .map { toMessageDto(it) }
-            .firstOrNull()
+            .toList()
+        
+        println("📊 [MessageRepository] Query returned ${results.size} results")
+        
+        if (results.isEmpty()) {
+            println("⚠️ [MessageRepository] No results found for message ID: $messageId")
+            println("🔍 [MessageRepository] Checking if message exists in Messages table...")
+            
+            val messageExists = Messages.select { Messages.id eq UUID.fromString(messageId) }
+                .count() > 0
+            
+            println("📊 [MessageRepository] Message exists in Messages table: $messageExists")
+            
+            if (messageExists) {
+                println("🔍 [MessageRepository] Checking sender user...")
+                val senderIdFromMessage = Messages.select { Messages.id eq UUID.fromString(messageId) }
+                    .map { it[Messages.senderId] }
+                    .firstOrNull()
+                
+                println("📊 [MessageRepository] Sender ID: $senderIdFromMessage")
+                
+                if (senderIdFromMessage != null) {
+                    val userExists = Users.select { Users.id eq senderIdFromMessage }
+                        .count() > 0
+                    println("📊 [MessageRepository] User exists: $userExists")
+                }
+            }
+        }
+        
+        results.map { toMessageDto(it) }.firstOrNull()
     }
     
     suspend fun getMessages(roomId: String, limit: Int = 50, offset: Int = 0): List<MessageDto> = 

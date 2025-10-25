@@ -10,6 +10,7 @@ import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.logging.*
 import io.ktor.client.plugins.websocket.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.*
 import io.ktor.serialization.kotlinx.json.*
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlin.math.min
 
@@ -360,25 +362,119 @@ class ChatApiClient(
         content: MessageContentDto,
         replyToId: String? = null
     ): Result<MessageDto> {
-        return safeApiCall {
-            println("📤 HTTP: Sending message to room $roomId")
+        return runCatching {
+            println("\n" + "=".repeat(60))
+            println("📤 HTTP: Sending message via POST /messages")
+            println("  Room ID: $roomId")
+            println("  Content: $content")
+            println("=".repeat(60))
             
-            val serverContent = content.toServerDto()
-            println("📤 HTTP: Content - type=${serverContent.type}, text=${serverContent.text}, url=${serverContent.url}")
-            
-            val response = httpClient.post("$baseUrl/messages") {
+            // Send request
+            val response: HttpResponse = httpClient.post("$baseUrl/messages") {
                 bearerAuth(tokenManager.getAccessToken() ?: "")
                 contentType(ContentType.Application.Json)
                 setBody(SendMessageRequest(
                     roomId = roomId,
-                    content = serverContent,
+                    content = content.toServerDto(),
                     replyToId = replyToId
                 ))
             }
             
-            val message: MessageDto = response.body()
-            println("✅ HTTP: Message sent successfully: ${message.id}")
+            // ✅ CRITICAL: Get response as text BEFORE deserialization
+            val statusCode = response.status.value
+            val responseBody = response.bodyAsText()
+            
+            println("\n" + "=".repeat(60))
+            println("📥 HTTP: Received response")
+            println("  Status: $statusCode ${response.status.description}")
+            println("  Content-Type: ${response.contentType()}")
+            println("  Body length: ${responseBody.length} bytes")
+            
+            // Show body (truncated if long)
+            if (responseBody.length < 1000) {
+                println("  Body:\n$responseBody")
+            } else {
+                println("  Body (first 500 chars):\n${responseBody.take(500)}...")
+            }
+            println("=".repeat(60) + "\n")
+            
+            // ✅ Check status code first
+            if (statusCode !in 200..299) {
+                println("❌ HTTP: Bad status code: $statusCode")
+                
+                // Try to parse as error response
+                try {
+                    val json = Json { 
+                        ignoreUnknownKeys = true
+                        isLenient = true
+                    }
+                    val errorResponse = json.decodeFromString<ErrorResponse>(responseBody)
+                    throw Exception("Server error (${errorResponse.error}): ${errorResponse.message}")
+                } catch (e: Exception) {
+                    throw Exception("Server error: $statusCode - ${response.status.description}")
+                }
+            }
+            
+            // ✅ Check for empty response
+            if (responseBody.isBlank()) {
+                println("❌ HTTP: Server returned empty response!")
+                throw Exception("Server returned empty response with status $statusCode")
+            }
+            
+            // ✅ Try to deserialize
+            try {
+                val json = Json { 
+                    ignoreUnknownKeys = true
+                    isLenient = true
+                    prettyPrint = true
+                }
+                
+                val message = json.decodeFromString<MessageDto>(responseBody)
+                
+                println("✅ HTTP: Deserialization successful!")
+                println("  Message ID: ${message.id}")
+                println("  Room ID: ${message.roomId}")
+                println("  Sender: ${message.senderName}")
+                println("  Status: ${message.status}")
+                println("  Timestamp: ${message.timestamp}")
+                
+                message
+                
+            } catch (e: Exception) {
+                println("❌ HTTP: Deserialization FAILED!")
+                println("  Error type: ${e::class.simpleName}")
+                println("  Error message: ${e.message}")
+                println("  Expected: MessageDto with fields [id, roomId, senderId, senderName, content, timestamp, status]")
+                println("  Received: $responseBody")
+                
+                // Try to parse as error response as last attempt
+                try {
+                    val json = Json { ignoreUnknownKeys = true; isLenient = true }
+                    val errorResponse = json.decodeFromString<ErrorResponse>(responseBody)
+                    throw Exception("Server returned error: ${errorResponse.message}")
+                } catch (e2: Exception) {
+                    // Give up and throw detailed error
+                    throw Exception(
+                        "Cannot parse server response. " +
+                        "Status: $statusCode, " +
+                        "Body length: ${responseBody.length}, " +
+                        "Body: ${responseBody.take(300)}, " +
+                        "Error: ${e.message}"
+                    )
+                }
+            }
+            
+        }.mapCatching { message ->
+            println("✅✅✅ sendMessageViaHttp: COMPLETE SUCCESS!")
+            println("  Message ${message.id} sent to room $roomId\n")
             message
+        }.onFailure { error ->
+            println("❌❌❌ sendMessageViaHttp: FINAL FAILURE!")
+            println("  Room: $roomId")
+            println("  Content: $content")
+            println("  Error: ${error.message}")
+            error.printStackTrace()
+            println()
         }
     }
     
@@ -452,3 +548,11 @@ class ChatApiClient(
         }
     }
 }
+
+// ✅ ErrorResponse DTO for server error handling
+@Serializable
+data class ErrorResponse(
+    val error: String,
+    val message: String,
+    val details: Map<String, String>? = null
+)
