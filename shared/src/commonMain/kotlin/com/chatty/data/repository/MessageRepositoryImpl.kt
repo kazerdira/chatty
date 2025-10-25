@@ -3,27 +3,39 @@ package com.chatty.data.repository
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import com.chatty.data.local.TokenManager
+import com.chatty.data.messaging.OutboxProcessor
 import com.chatty.data.remote.ChatApiClient
 import com.chatty.data.remote.dto.*
 import com.chatty.database.ChatDatabase
 import com.chatty.domain.model.ChatRoom
 import com.chatty.domain.model.Message
+import com.chatty.domain.model.OutboxMessage
+import com.chatty.domain.model.OutboxStatus
 import com.chatty.domain.model.User
 import com.chatty.domain.repository.MessageRepository
+import com.chatty.domain.repository.OutboxRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 
 class MessageRepositoryImpl(
     private val apiClient: ChatApiClient,
     private val database: ChatDatabase,
     private val tokenManager: TokenManager,
+    private val outboxRepository: OutboxRepository,
+    private val outboxProcessor: OutboxProcessor,
     private val scope: CoroutineScope
 ) : MessageRepository {
     
     init {
+        println("🔧 MessageRepository: Initializing with Outbox Pattern (fix6)")
+        
+        // Start outbox processor for automatic retry
+        outboxProcessor.start()
+        
         // Listen to WebSocket messages
         scope.launch {
             apiClient.incomingMessages.collect { wsMessage ->
@@ -78,7 +90,29 @@ class MessageRepositoryImpl(
     
     override suspend fun sendMessage(message: Message): Result<Message> {
         return runCatching {
-            // Save to local DB first
+            val clientId = message.id.value
+            val now = Clock.System.now()
+            
+            println("📤 MessageRepository: Sending message $clientId with Outbox Pattern")
+            
+            // Create outbox message (GUARANTEED DELIVERY)
+            val outboxMessage = OutboxMessage(
+                id = clientId,
+                roomId = message.roomId,
+                senderId = message.senderId,
+                content = message.content,
+                timestamp = message.timestamp,
+                status = OutboxStatus.PENDING,
+                retryCount = 0,
+                lastRetryAt = null,
+                createdAt = now
+            )
+            
+            // Save to outbox (guarantees delivery even if app crashes)
+            outboxRepository.insertMessage(outboxMessage)
+            println("💾 MessageRepository: Saved to outbox")
+            
+            // Save to messages table (optimistic update for instant UI)
             database.chatDatabaseQueries.insertMessage(
                 id = message.id.value,
                 roomId = message.roomId.value,
@@ -92,29 +126,14 @@ class MessageRepositoryImpl(
                 editedAt = message.editedAt?.toEpochMilliseconds(),
                 replyToId = message.replyTo?.value
             )
+            println("💾 MessageRepository: Saved to messages (optimistic)")
             
-            // ✅ FIXED: Send via WebSocket using CLIENT message type (not server type!)
-            apiClient.sendClientMessage(
-                ClientWebSocketMessage.SendMessage(
-                    messageId = message.id.value,
-                    roomId = message.roomId.value,
-                    content = message.content.toDto()
-                )
-            ).fold(
-                onSuccess = { 
-                    println("✅ Message queued for sending: ${message.id.value}")
-                    message 
-                },
-                onFailure = { error ->
-                    // Update status to FAILED
-                    println("❌ Failed to send message: ${error.message}")
-                    database.chatDatabaseQueries.updateMessageStatus(
-                        Message.MessageStatus.FAILED.name,
-                        message.id.value
-                    )
-                    throw error
-                }
-            )
+            // Trigger immediate send attempt (don't wait for background processor)
+            scope.launch {
+                outboxProcessor.processSingleMessage(clientId)
+            }
+            
+            message
         }
     }
     

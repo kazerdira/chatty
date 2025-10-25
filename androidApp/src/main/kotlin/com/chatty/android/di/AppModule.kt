@@ -7,15 +7,18 @@ import com.chatty.android.ui.chat.UserSearchViewModel
 import com.chatty.data.local.DatabaseDriverFactory
 import com.chatty.data.local.TokenManager
 import com.chatty.data.local.TokenManagerImpl
+import com.chatty.data.messaging.OutboxProcessor
 import com.chatty.data.remote.ChatApiClient
 import com.chatty.data.repository.AuthRepositoryImpl
 import com.chatty.data.repository.ChatRoomRepositoryImpl
 import com.chatty.data.repository.MessageRepositoryImpl
+import com.chatty.data.repository.OutboxRepositoryImpl
 import com.chatty.data.repository.UserRepositoryImpl
 import com.chatty.database.ChatDatabase
 import com.chatty.domain.repository.AuthRepository
 import com.chatty.domain.repository.ChatRoomRepository
 import com.chatty.domain.repository.MessageRepository
+import com.chatty.domain.repository.OutboxRepository
 import com.chatty.domain.repository.UserRepository
 import com.chatty.domain.usecase.*
 import kotlinx.coroutines.CoroutineScope
@@ -53,11 +56,28 @@ val appModule = module {
         )
     }
     
+    // fix6: Outbox Pattern components
+    single<OutboxRepository> {
+        OutboxRepositoryImpl(
+            database = get()
+        )
+    }
+    
+    single {
+        OutboxProcessor(
+            outboxRepository = get(),
+            apiClient = get(),
+            scope = get()
+        )
+    }
+    
     single<MessageRepository> { 
         MessageRepositoryImpl(
             apiClient = get(),
             database = get(),
             tokenManager = get(),
+            outboxRepository = get(),
+            outboxProcessor = get(),
             scope = get()
         )
     }
