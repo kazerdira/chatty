@@ -280,10 +280,15 @@ class MessageService(
         senderId: String,
         request: SendMessageRequest
     ): MessageDto? {
+        println("🔍 [MessageService] Attempting to send message - senderId: $senderId, roomId: ${request.roomId}")
+        
         // Verify user has access to room
         if (!roomRepository.userHasAccessToRoom(senderId, request.roomId)) {
+            println("❌ [MessageService] User $senderId does not have access to room ${request.roomId}")
             throw UnauthorizedException("User does not have access to this room")
         }
+        
+        println("✅ [MessageService] User has access to room")
         
         // Save message
         val message = messageRepository.sendMessage(
@@ -296,6 +301,8 @@ class MessageService(
             fileSize = request.content.fileSize,
             replyToId = request.replyToId
         )
+        
+        println("📝 [MessageService] Message repository returned: ${if (message != null) "SUCCESS" else "NULL"}")
         
         // Broadcast to WebSocket connections
         message?.let {

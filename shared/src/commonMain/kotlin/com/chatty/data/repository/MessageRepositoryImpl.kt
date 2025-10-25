@@ -72,7 +72,7 @@ class MessageRepositoryImpl(
             roomId = messageDto.roomId,
             senderId = messageDto.senderId,
             senderName = messageDto.senderName,
-            senderAvatar = messageDto.senderAvatar,
+            senderAvatar = null, // Server doesn't return this field (fix6_v3)
             contentType = messageDto.content.type, // Use server's flat structure
             contentData = messageDto.content.text ?: messageDto.content.url ?: "", // Simple serialization
             timestamp = Instant.parse(messageDto.timestamp).toEpochMilliseconds(),

@@ -20,6 +20,8 @@ class MessageRepository {
         fileSize: Long? = null,
         replyToId: String? = null
     ): MessageDto? = dbQuery {
+        println("🔍 [MessageRepository] Inserting message - roomId: $roomId, senderId: $senderId, contentType: $contentType")
+        
         val messageId = Messages.insert {
             it[Messages.roomId] = UUID.fromString(roomId)
             it[Messages.senderId] = UUID.fromString(senderId)
@@ -32,6 +34,8 @@ class MessageRepository {
             it[timestamp] = Instant.now()
             it[status] = "SENT"
         } get Messages.id
+        
+        println("✅ [MessageRepository] Message inserted with ID: ${messageId.value}")
         
         // Mark as sent for sender
         MessageStatus.insert {
@@ -60,7 +64,7 @@ class MessageRepository {
     }
     
     suspend fun getMessageById(messageId: String): MessageDto? = dbQuery {
-        (Messages innerJoin Users)
+        Messages.join(Users, JoinType.INNER, Messages.senderId, Users.id)
             .select { Messages.id eq UUID.fromString(messageId) }
             .map { toMessageDto(it) }
             .firstOrNull()
@@ -68,7 +72,7 @@ class MessageRepository {
     
     suspend fun getMessages(roomId: String, limit: Int = 50, offset: Int = 0): List<MessageDto> = 
         dbQuery {
-            (Messages innerJoin Users)
+            Messages.join(Users, JoinType.INNER, Messages.senderId, Users.id)
                 .select { 
                     (Messages.roomId eq UUID.fromString(roomId)) and
                     Messages.deletedAt.isNull()
@@ -79,7 +83,7 @@ class MessageRepository {
         }
     
     suspend fun getLastMessageForRoom(roomId: UUID): MessageDto? = dbQuery {
-        (Messages innerJoin Users)
+        Messages.join(Users, JoinType.INNER, Messages.senderId, Users.id)
             .select { Messages.roomId eq roomId }
             .orderBy(Messages.timestamp to SortOrder.DESC)
             .limit(1)

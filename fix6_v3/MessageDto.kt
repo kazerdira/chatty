@@ -14,14 +14,24 @@ data class MessageDto(
     val senderId: String,
     val senderName: String,
     // ❌ REMOVED: senderAvatar (server doesn't return this field)
-    val content: ServerMessageContentDto, // Use server's flat structure
+    val content: ServerMessageContentDto,
     val timestamp: String,
     val status: String,
     val editedAt: String? = null,
     val replyTo: String? = null
 )
 
-// Client's sealed class structure (used internally for UI) 
+// Server's flat content structure (must match server exactly)
+@Serializable
+data class ServerMessageContentDto(
+    val type: String,
+    val text: String? = null,
+    val url: String? = null,
+    val fileName: String? = null,
+    val fileSize: Long? = null
+)
+
+// Client's sealed class structure (used internally)
 @Serializable
 sealed class MessageContentDto {
     @Serializable
@@ -56,16 +66,6 @@ sealed class MessageContentDto {
         val duration: Long
     ) : MessageContentDto()
 }
-
-// Server's flat content structure (matches server exactly)
-@Serializable 
-data class ServerMessageContentDto(
-    val type: String,
-    val text: String? = null,
-    val url: String? = null,
-    val fileName: String? = null,
-    val fileSize: Long? = null
-)
 
 // ✅ ENHANCED: Mappers with better error handling
 fun MessageDto.toEntity(): Message = Message(
@@ -130,43 +130,46 @@ fun Message.MessageContent.toDto(): MessageContentDto = when (this) {
     is Message.MessageContent.Voice -> MessageContentDto.Voice(url, duration)
 }
 
-// Convert client MessageContentDto to server's flat structure
+// ✅ CRITICAL: Convert client MessageContentDto to server's flat structure
 fun MessageContentDto.toServerDto(): ServerMessageContentDto = when (this) {
     is MessageContentDto.Text -> ServerMessageContentDto(
         type = "TEXT",
-        text = text
+        text = text,
+        url = null,
+        fileName = null,
+        fileSize = null
     )
     is MessageContentDto.Image -> ServerMessageContentDto(
         type = "IMAGE",
-        url = url,
         text = null,
+        url = url,
         fileName = null,
         fileSize = null
     )
     is MessageContentDto.Video -> ServerMessageContentDto(
         type = "VIDEO",
-        url = url,
         text = null,
+        url = url,
         fileName = null,
         fileSize = null
     )
     is MessageContentDto.File -> ServerMessageContentDto(
         type = "FILE",
-        url = url,
         text = null,
+        url = url,
         fileName = fileName,
         fileSize = size
     )
     is MessageContentDto.Voice -> ServerMessageContentDto(
         type = "VOICE",
-        url = url,
         text = null,
+        url = url,
         fileName = null,
         fileSize = null
     )
 }
 
-// Request DTO for sending messages via HTTP API (uses server's flat structure)
+// Request DTO for sending messages via HTTP API
 @Serializable
 data class SendMessageRequest(
     val roomId: String,

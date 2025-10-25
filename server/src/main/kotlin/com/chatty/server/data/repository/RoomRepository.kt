@@ -65,7 +65,7 @@ class RoomRepository(
         println("DEBUG: Found ${participants.size} participants")
         
         println("DEBUG: Getting last message...")
-        val lastMessage = (Messages innerJoin Users)
+        val lastMessage = Messages.join(Users, JoinType.INNER, Messages.senderId, Users.id)
             .select { Messages.roomId eq roomId }
             .orderBy(Messages.timestamp to SortOrder.DESC)
             .limit(1)
@@ -104,7 +104,7 @@ class RoomRepository(
         println("DEBUG: Found ${participants.size} participants")
         
         println("DEBUG: Getting last message...")
-        val lastMessage = (Messages innerJoin Users)
+        val lastMessage = Messages.join(Users, JoinType.INNER, Messages.senderId, Users.id)
             .select { Messages.roomId eq UUID.fromString(roomId) }
             .orderBy(Messages.timestamp to SortOrder.DESC)
             .limit(1)
@@ -142,7 +142,7 @@ class RoomRepository(
                 .select { RoomParticipants.roomId eq UUID.fromString(roomId) }
                 .map { it[Users.id].value.toString() }
             
-            val lastMessage = (Messages innerJoin Users)
+            val lastMessage = Messages.join(Users, JoinType.INNER, Messages.senderId, Users.id)
                 .select { Messages.roomId eq UUID.fromString(roomId) }
                 .orderBy(Messages.timestamp to SortOrder.DESC)
                 .limit(1)
